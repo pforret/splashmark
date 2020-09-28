@@ -63,6 +63,7 @@ main() {
           log "Found photo ID = $photo_id"
           image_file=$(unsplash_download "$photo_id")
           unsplash_metadata "$photo_id"
+          # shellcheck disable=SC2154
           image_prepare "$image_file" "$output"
         fi
         ;;
@@ -98,15 +99,14 @@ unsplash_api(){
     # no querystring yet
     full_url="$full_url?client_id=$UNSPLASH_ACCESSKEY"
   fi
-  # shellcheck disable=SC2154
   uniq=$(echo "$full_url" | hash 8)
+  # shellcheck disable=SC2154
   cached="$tmp_dir/unsplash.$uniq.json"
   log "Cache [$cached]"
   if [[ ! -f "$cached" ]] || grep -c '{' "$cached" > /dev/null ; then
     # only the data once
     log "URL = [$full_url]"
     curl -s "$full_url" > "$cached"
-    log "$(wc $cached)"
   fi
   < "$cached" jq "${2:-.}" \
   | sed 's/"//g' \
