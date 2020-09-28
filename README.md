@@ -32,6 +32,7 @@ Example (verbose) output:
         # Cache [.tmp/unsplash.38d07335.json] 
         # URL = [https://api.unsplash.com/photos/e-S-Pe2EmrE?client_id=(...)] 
         # Photographer = [Rowan Heuvel] 
+        # Resize & crop image to 800 x 800 --> bird.jpg 
         # EXIF: set [Artist] to [Rowan Heuvel] for [bird.jpg] 
         # EXIF: set [OwnerName] to [Rowan Heuvel] for [bird.jpg] 
         # EXIF: set [Credit] to [unsplash.com] for [bird.jpg] 

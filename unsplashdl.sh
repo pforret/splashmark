@@ -157,8 +157,10 @@ image_prepare(){
 
   # shellcheck disable=SC2154
   if [[ $height -gt 0 ]] ; then
+    log "Resize & crop image to $width x $height --> $2"
     magick "$1" -gravity Center -resize "${width}"x -crop "${width}x${height}+0+0" +repage "$2"
   else
+    log "Resize image to $width wide --> $2"
     magick "$1" -gravity Center -resize "${width}"x "$2"
   fi
   if [[ -f "$2" ]] ; then
