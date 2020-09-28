@@ -33,10 +33,12 @@ flag|v|verbose|output more
 flag|f|force|do not ask for confirmation (always yes)
 option|l|log_dir|folder for log files |log
 option|t|tmp_dir|folder for temp files|.tmp
-param|1|action|action to perform: action1/action2/...
+option|w|width|image width for resizing|1080
+option|h|height|image height for cropping|240
+param|1|action|action to perform: download/search
 # there can only be 1 param|n and it should be the last
-param|1|input|input file
 param|1|output|output file
+param|1|input|URL or search term
 " | grep -v '^#'
 }
 
@@ -54,13 +56,15 @@ main() {
 
     action=$(lower_case "$action")
     case $action in
-    action1 )
+    download|d )
         # shellcheck disable=SC2154
-        perform_action1 "$input" "$output"
+        phophoto_idtoid=$(basename "$input")
+        unsplash_download "$output" "$photo_id"
         ;;
 
-    action2 )
-        perform_action2 "$input" "$output"
+    search|s )
+        photo_id=$(unsplash_search "$input")
+        unsplash_download "$output" "$photo_id"
         ;;
 
     *)
@@ -72,14 +76,41 @@ main() {
 ## Put your helper scripts here
 #####################################################################
 
-perform_action1(){
-  echo "ACTION 1"
-  # < "$1"  do_stuff > "$2"
+unsplash_api(){
+  # $1 = relative API URL
+  # $2
+  api_endpoint="https://api.unsplash.com"
+  full_url="$api_endpoint$1"
+  if [[ $full_url =~ "?" ]] ; then
+    full_url="$full_url&client_id=$UNSPLASH_ACCESSKEY"
+  else
+    full_url="$full_url?client_id=$UNSPLASH_ACCESSKEY"
+  fi
+  cached=$tmp_dir/api.$(echo "$full_url" | hash 8).json
+  log "Cache [$cached]"
+  if [[ ! -f "$cached" ]] ; then
+    log "URL = [$full_url]"
+    curl -s "$full_url" > "$cached"
+  fi
+  < "$cached" jq "${2:-.}" | sed 's/"//g' | sed 's/,$//'
 }
 
-perform_action2(){
-  echo "ACTION 2"
-  # < "$1"  do_other_stuff > "$2"
+unsplash_download(){
+  # $1 = photo_id
+  photo_id=$(basename "$1")
+  downloadurl=$(unsplash_api "/photos/$photo_id" .urls.regular)
+  log "Download = [$downloadurl]"
+  original_file="$tmpd/$photo_id.jpg"
+  log "Original file = [$original_file]"
+  if [[ ! -f "$original_file" ]] ; then
+  curl -s -o "$original_file" "$downloadurl"
+  [[ ! -f "$original_file" ]] && die "download [$downloadurl] failed"
+  fi
+}
+
+unsplash_search(){
+  # $1 = keyword(s)
+  unsplash_api "/search/photos/?query=$1" .results[0].id
 }
 
 

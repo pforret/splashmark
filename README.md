@@ -1,5 +1,5 @@
 # unsplashdl
 
-download from unsplash.com
+Download unsplash pics and resize/add attribution/... 
 
-(c) 2020 Peter Forret
+&copy; 2020 Peter Forret
