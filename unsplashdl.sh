@@ -34,7 +34,7 @@ flag|f|force|do not ask for confirmation (always yes)
 option|l|log_dir|folder for log files |log
 option|t|tmp_dir|folder for temp files|.tmp
 option|w|width|image width for resizing|1080
-option|h|height|image height for cropping|240
+option|c|height|image height for cropping|0
 param|1|action|action to perform: download/search
 # there can only be 1 param|n and it should be the last
 param|1|output|output file
@@ -51,20 +51,30 @@ main() {
     log "Updated: $prog_modified"
     log "Run as : $USER@$HOSTNAME"
     # add programs you need in your script here, like tar, wget, ffmpeg, rsync ...
-    verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc
+    verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool magick
     prep_log_and_temp_dir
 
     action=$(lower_case "$action")
     case $action in
     download|d )
         # shellcheck disable=SC2154
-        phophoto_idtoid=$(basename "$input")
-        unsplash_download "$output" "$photo_id"
+        photo_id=$(basename "$input")
+        if [[ -n "$photo_id" ]] ; then
+          log "Found photo ID = $photo_id"
+          image_file=$(unsplash_download "$photo_id")
+          unsplash_metadata "$photo_id"
+          image_prepare "$image_file" "$output"
+        fi
         ;;
 
     search|s )
         photo_id=$(unsplash_search "$input")
-        unsplash_download "$output" "$photo_id"
+        if [[ -n "$photo_id" ]] ; then
+          log "Found photo ID = $photo_id"
+          image_file=$(unsplash_download "$photo_id")
+          unsplash_metadata "$photo_id"
+          image_prepare "$image_file" "$output"
+        fi
         ;;
 
     *)
@@ -78,42 +88,86 @@ main() {
 
 unsplash_api(){
   # $1 = relative API URL
-  # $2
+  # $2 = jq query path
   api_endpoint="https://api.unsplash.com"
   full_url="$api_endpoint$1"
   if [[ $full_url =~ "?" ]] ; then
+    # already has querystring
     full_url="$full_url&client_id=$UNSPLASH_ACCESSKEY"
   else
+    # no querystring yet
     full_url="$full_url?client_id=$UNSPLASH_ACCESSKEY"
   fi
-  cached=$tmp_dir/api.$(echo "$full_url" | hash 8).json
+  # shellcheck disable=SC2154
+  uniq=$(echo "$full_url" | hash 8)
+  cached="$tmp_dir/unsplash.$uniq.json"
   log "Cache [$cached]"
-  if [[ ! -f "$cached" ]] ; then
+  if [[ ! -f "$cached" ]] || grep -c '{' "$cached" > /dev/null ; then
+    # only the data once
     log "URL = [$full_url]"
     curl -s "$full_url" > "$cached"
+    log "$(wc $cached)"
   fi
-  < "$cached" jq "${2:-.}" | sed 's/"//g' | sed 's/,$//'
+  < "$cached" jq "${2:-.}" \
+  | sed 's/"//g' \
+  | sed 's/,$//' \
+  | tee "$tmp_dir/query.$uniq$2.txt"
+}
+
+unsplash_metadata(){
+  photographer=$(unsplash_api "/photos/$1" ".user.name")
+  log "Photographer = [$photographer]"
 }
 
 unsplash_download(){
   # $1 = photo_id
+  # returns path of downloaded file
   photo_id=$(basename "$1")
-  downloadurl=$(unsplash_api "/photos/$photo_id" .urls.regular)
-  log "Download = [$downloadurl]"
-  original_file="$tmpd/$photo_id.jpg"
-  log "Original file = [$original_file]"
-  if [[ ! -f "$original_file" ]] ; then
-  curl -s -o "$original_file" "$downloadurl"
-  [[ ! -f "$original_file" ]] && die "download [$downloadurl] failed"
+  image_url=$(unsplash_api "/photos/$photo_id" .urls.regular)
+  log "Download = [$image_url]"
+  from_unsplash="$tmp_dir/$photo_id.jpg"
+  log "Original file = [$from_unsplash]"
+  if [[ ! -f "$from_unsplash" ]] ; then
+    curl -s -o "$from_unsplash" "$image_url"
+    [[ ! -f "$from_unsplash" ]] && die "download [$image_url] failed"
   fi
+  echo "$from_unsplash"
 }
 
 unsplash_search(){
   # $1 = keyword(s)
-  unsplash_api "/search/photos/?query=$1" .results[0].id
+  # returns first result
+  unsplash_api "/search/photos/?query=$1" ".results[0].id"
 }
 
+set_exif(){
+  filename="$1"
+  exif_key="$2"
+  exif_val="$3"
 
+  if [[ -n "$exif_val" ]] ; then
+    log "EXIF: set [$exif_key] to [$exif_val] for [$filename]"
+    exiftool -overwrite_original -"$exif_key"="$exif_val" "$filename" > /dev/null
+  fi
+}
+
+image_prepare(){
+  # $1 = input file
+  # $2 = output file
+
+  # shellcheck disable=SC2154
+  if [[ $height -gt 0 ]] ; then
+    magick "$1" -gravity Center -resize "${width}"x -crop "${width}x${height}+0+0" +repage "$2"
+  else
+    magick "$1" -gravity Center -resize "${width}"x "$2"
+  fi
+  if [[ -f "$2" ]] ; then
+    set_exif "$2" "Artist" "$photographer"
+    set_exif "$2" "OwnerName" "$photographer"
+    set_exif "$2" "Credit" "unsplash.com"
+    set_exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
+  fi
+}
 #####################################################################
 ################### DO NOT MODIFY BELOW THIS LINE ###################
 
