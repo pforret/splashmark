@@ -10,7 +10,7 @@
 ### Created by Peter Forret ( pforret ) on 2020-09-28
 script_version="0.0.0"  # if there is a VERSION.md in this script's folder, it will take priority for version number
 readonly script_author="peter@forret.com"
-readonly script_creation="2020-09-28"
+readonly script_created="2020-09-28"
 readonly run_as_root=-1 # run_as_root: 0 = don't check anything / 1 = script MUST run as root / -1 = script MAY NOT run as root
 
 list_options() {
@@ -48,7 +48,7 @@ param|1|input|URL or search term
 
 main() {
     log "Program: $script_basename $script_version"
-    log "Updated: $prog_modified"
+    log "Updated: $script_modified"
     log "Run as : $USER@$HOSTNAME"
     # add programs you need in your script here, like tar, wget, ffmpeg, rsync ...
     verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool magick
@@ -191,10 +191,10 @@ hash(){
 #TIP:> url_contents="$domain.$(echo $url | hash 8).html"
 
 
-prog_modified="??"
+script_modified="??"
 os_name=$(uname -s)
-[[ "$os_name" = "Linux" ]]  && prog_modified=$(stat -c %y    "${BASH_SOURCE[0]}" 2>/dev/null | cut -c1-16) # generic linux
-[[ "$os_name" = "Darwin" ]] && prog_modified=$(stat -f "%Sm" "${BASH_SOURCE[0]}" 2>/dev/null) # for MacOS
+[[ "$os_name" = "Linux" ]]  && script_modified=$(stat -c %y    "${BASH_SOURCE[0]}" 2>/dev/null | cut -c1-16) # generic linux
+[[ "$os_name" = "Darwin" ]] && script_modified=$(stat -f "%Sm" "${BASH_SOURCE[0]}" 2>/dev/null) # for MacOS
 
 force=0
 help=0
@@ -312,8 +312,8 @@ is_dir()  { [[ -d "$1" ]] ; }
 #TIP:> if is_file "/etc/hosts" ; then ; cat "/etc/hosts" ; fi
 
 show_usage() {
-  out "Program: ${col_grn}$script_basename $script_version${col_reset} by ${col_ylw}$script_author${col_reset}"
-  out "Updated: ${col_grn}$prog_modified${col_reset}"
+  out "Program: ${col_grn}$script_basename $script_version${col_reset} created on ${col_grn}$script_created${col_reset} by ${col_ylw}$script_author${col_reset}"
+  out "Updated: ${col_grn}$script_modified${col_reset}"
 
   echo -n "Usage: $script_basename"
    list_options \
@@ -502,7 +502,9 @@ parse_options() {
 lookup_script_data(){
   readonly script_prefix=$(basename "${BASH_SOURCE[0]}" .sh)
   readonly script_basename=$(basename "${BASH_SOURCE[0]}")
+  # shellcheck disable=SC2034
   readonly execution_day=$(date "+%Y-%m-%d")
+  # shellcheck disable=SC2034
   readonly execution_year=$(date "+%Y")
 
    if [[ -z $(dirname "${BASH_SOURCE[0]}") ]]; then
@@ -538,6 +540,7 @@ lookup_script_data(){
   if git status >/dev/null; then
     readonly in_git_repo=1
   else
+    # shellcheck disable=SC2034
     readonly in_git_repo=0
   fi
 }
@@ -573,7 +576,7 @@ import_env_if_any(){
   fi
   if [[ -f "./.env" ]] ; then
     log "Read config from [./.env]"
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1091
     source "./.env"
   fi
 }
