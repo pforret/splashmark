@@ -20,7 +20,7 @@ Download unsplash pics and resize/add attribution/...
 
 Example (verbose) output:
 
-        > ./unsplashdl.sh -v -w 800 -c 800 search bird.jpg bird
+        > unsplashdl.sh -v -w 800 -c 800 search bird.jpg bird
         (...)
         # Cache [.tmp/unsplash.0ab744da.json] 
         # URL = [https://api.unsplash.com/search/photos/?query=bird&client_id=(...)] 
