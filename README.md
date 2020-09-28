@@ -1,3 +1,10 @@
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/pforret/unsplashdl)
+![GitHub top language](https://img.shields.io/github/languages/top/pforret/unsplashdl)
+![Shellcheck CI](https://github.com/pforret/unsplashdl/workflows/Shellcheck%20CI/badge.svg) 
+![Bash CI](https://github.com/pforret/unsplashdl/workflows/Bash%20CI/badge.svg)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/pforret/unsplashdl)
+![GitHub issues](https://img.shields.io/github/issues-raw/pforret/unsplashdl)
+
 # unsplashdl
 
 Download unsplash pics and resize/add attribution/... 
