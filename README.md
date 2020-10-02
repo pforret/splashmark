@@ -88,7 +88,14 @@ Example (verbose) output:
     unsplashdl.sh --width 400 --effect grain,bw,light --fontcolor 333333 search examples/puppy.png puppy
 ![unsplashdl.sh --width 400 --effect grain,bw,light --fontcolor 333333 search examples/puppy.png puppy](examples/puppy.png)
 
-    unsplashdl.sh -p fonts/FiraCode-Regular.ttf -x median,light -1 "font: Fira Code, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} search examples/code.jpg code
+    unsplashdl.sh \
+    -p fonts/FiraCode-Regular.ttf \
+    -x median,light \
+    -1 "font: Fira Code, via Google Fonts" \
+    -2 "Photo: {url}" \
+    -3 "www.example.com" \
+    -4 {copyright} \
+    search examples/code.jpg code
 ![unsplashdl.sh -p fonts/FiraCode-Regular.ttf -x median,light -1 "font: Fira Code, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} search examples/code.jpg code](examples/code.jpg)
 ---
 
