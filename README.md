@@ -14,29 +14,36 @@ Download unsplash pics and
 * add attribution (by saving it as EXIF/IPTC meta data)
 * add watermarks (Unsplash URL or other)
 
-        Program: splashmark 2.0.0 created on 2020-09-28 by peter@forret.com
+
+## Usage
+
+        Program: splashmark 2.1.0 created on 2020-09-28 by peter@forret.com
         Updated: Oct  2 14:58:09 2020
-        Usage: splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <height>] [-p <fonttype>] [-q <fontsize>] [-r <fontcolor>] [-x <effect>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] <action> <output> <input>
+        Usage: splashmark [-h] [-q] [-v] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] [-c <height>] [-e <effect>] [-g <gravity>] [-h <titlesize>] [-i <title>] [-l <log_dir>] [-m <margin>] [-p <fonttype>] [-q <fontsize>] [-r <fontcolor>] [-t <tmp_dir>] [-w <width>] <action> <output> <input>
         Flags, options and parameters:
             -h|--help      : [flag] show usage [default: off]
             -q|--quiet     : [flag] no output [default: off]
             -v|--verbose   : [flag] output more [default: off]
-            -l|--log_dir <val>: [optn] folder for log files   [default: log]
-            -t|--tmp_dir <val>: [optn] folder for temp files  [default: .tmp]
-            -w|--width <val>: [optn] image width for resizing  [default: 800]
-            -c|--height <val>: [optn] image height for cropping  [default: 0]
-            -p|--fonttype <val>: [optn] font type family to use  [default: Courier-Bold]
-            -q|--fontsize <val>: [optn] font size to use  [default: 12]
-            -r|--fontcolor <val>: [optn] font color to use  [default: FFFFFF]
-            -x|--effect <val>: [optn] use effect on image: bw/blur/dark/grain/light/median/paint/pixel
             -1|--northwest <val>: [optn] text to put in left top
             -2|--northeast <val>: [optn] text to put in right top  [default: {url}]
             -3|--southwest <val>: [optn] text to put in left bottom
             -4|--southeast <val>: [optn] text to put in right bottom  [default: {copyright2}]
+            -c|--height <val>: [optn] image height for cropping  [default: 0]
+            -e|--effect <val>: [optn] use effect on image: bw/blur/dark/grain/light/median/paint/pixel
+            -g|--gravity <val>: [optn] title gravity  [default: Center]
+            -i|--title <val>: [optn] big text to put in center
+            -j|--titlesize <val>: [optn] font size for title  [default: 60]
+            -l|--log_dir <val>: [optn] folder for log files   [default: log]
+            -m|--margin <val>: [optn] margin for watermarks  [default: 12]
+            -o|--fontsize <val>: [optn] font size for watermarks  [default: 12]
+            -p|--fonttype <val>: [optn] font type family to use  [default: Courier-Bold]
+            -r|--fontcolor <val>: [optn] font color to use  [default: FFFFFF]
+            -t|--tmp_dir <val>: [optn] folder for temp files  [default: .tmp]
+            -w|--width <val>: [optn] image width for resizing  [default: 800]
             <action>  : [parameter] action to perform: download/search
             <output>  : [parameter] output file
-            <input>   : [parameter] URL or search term      
-       
+            <input>   : [parameter] URL or search term         
+
 ## installation
 
 1. install requirements
@@ -117,10 +124,10 @@ Download unsplash pics and
     splashmark.sh -w 720 -c 400 -q 25 -p "Times-Roman" search examples/cocktail.jpg cocktail
 ![splashmark.sh -w 720 -c 400 -q 25 -p "Times-Roman" search examples/cocktail.jpg cocktail](examples/cocktail.jpg)
 
-    splashmark.sh -w 720 -c 480 -x light -r 660066 search examples/horse.jpg horse
+    splashmark.sh -w 720 -c 480 -e light -r 660066 search examples/horse.jpg horse
 ![splashmark.sh -w 720 -c 480 -x light -r 660066 search examples/horse.jpg horse](examples/horse.jpg)
     
-    splashmark.sh -w 600 -c 600 -p "AvantGarde-Demi" -q 16 -x median,paint,grain  search examples/steak.gif steak
+    splashmark.sh -w 600 -c 600 -p "AvantGarde-Demi" -q 16 -e median,paint,grain  search examples/steak.gif steak
 ![splashmark.sh -w 600 -c 600 -p "AvantGarde-Demi" -q 16 -x median,paint,grain  search examples/steak.gif steak](examples/steak.gif)
 
     splashmark.sh --width 400 --effect grain,bw,light --fontcolor 333333 search examples/puppy.png puppy
