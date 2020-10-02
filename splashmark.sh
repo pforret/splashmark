@@ -17,14 +17,14 @@ option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|
 option|4|southeast|text to put in right bottom|{copyright2}
 option|c|height|image height for cropping|0
-option|e|effect|use effect on image: bw/blur/dark/grain/light/median/paint/pixel|
+option|e|effect|use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|g|gravity|title gravity|Center
-option|h|titlesize|font size for title|60
 option|i|title|big text to put in center|
+option|j|titlesize|font size for title|60
 option|l|log_dir|folder for log files |log
 option|m|margin|margin for watermarks|12
+option|o|fontsize|font size for watermarks|12
 option|p|fonttype|font type family to use|Courier-Bold
-option|q|fontsize|font size for watermarks|12
 option|r|fontcolor|font color to use|FFFFFF
 option|t|tmp_dir|folder for temp files|.tmp
 option|w|width|image width for resizing|800
