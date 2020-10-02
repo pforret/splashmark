@@ -12,20 +12,23 @@ list_options() {
 flag|h|help|show usage
 flag|q|quiet|no output
 flag|v|verbose|output more
-option|l|log_dir|folder for log files |log
-option|t|tmp_dir|folder for temp files|.tmp
-option|w|width|image width for resizing|800
-option|c|height|image height for cropping|0
-option|p|fonttype|font type family to use|Courier-Bold
-option|q|fontsize|font size to use|12
-option|r|fontcolor|font color to use|FFFFFF
-option|x|effect|use effect on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|
 option|4|southeast|text to put in right bottom|{copyright2}
+option|c|height|image height for cropping|0
+option|e|effect|use effect on image: bw/blur/dark/grain/light/median/paint/pixel|
+option|g|gravity|title gravity|Center
+option|h|titlesize|font size for title|60
+option|i|title|big text to put in center|
+option|l|log_dir|folder for log files |log
+option|m|margin|margin for watermarks|12
+option|p|fonttype|font type family to use|Courier-Bold
+option|q|fontsize|font size for watermarks|12
+option|r|fontcolor|font color to use|FFFFFF
+option|t|tmp_dir|folder for temp files|.tmp
+option|w|width|image width for resizing|800
 param|1|action|action to perform: download/search
-# there can only be 1 param|n and it should be the last
 param|1|output|output file
 param|1|input|URL or search term
 " | grep -v '^#'
@@ -156,10 +159,10 @@ image_prepare() {
 
   # shellcheck disable=SC2154
   if [[ $height -gt 0 ]]; then
-    log "Resize & crop image to $width x $height --> $2"
+    log "CROP: image to $width x $height --> $2"
     convert "$1" -gravity Center -resize "${width}"x -crop "${width}x${height}+0+0" +repage -quality 95% "$2"
   else
-    log "Resize image to $width wide --> $2"
+    log "SIZE: to $width wide --> $2"
     convert "$1" -gravity Center -resize "${width}"x -quality 95%  "$2"
   fi
   if [[ -f "$2" ]]; then
@@ -181,6 +184,8 @@ image_prepare() {
   [[ -n "$southwest" ]] && image_watermark "$2" SouthWest "$southwest"
   # shellcheck disable=SC2154
   [[ -n "$southeast" ]] && image_watermark "$2" SouthEast "$southeast"
+  # shellcheck disable=SC2154
+  [[ -n "$title" ]] && image_title "$2" "$title"
 }
 
 text_resolve() {
@@ -221,7 +226,6 @@ image_watermark() {
   # $2 = gravity
   # $3 = text
 
-  # magick mogrify -gravity "SouthWest" -pointsize "$largetext" -font "$font" -fill "#0008" -annotate "0x0+22+22" "$title" "$output_file"
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
@@ -233,9 +237,31 @@ image_watermark() {
   text=$(text_resolve "$3")
 
   log "MARK: [$text] in $2 corner ..."
+  margin2=$((margin + 1))
   # shellcheck disable=SC2154
-  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$shadow_color" -annotate "0x0+21+21" "$text" "$1"
-  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor" -annotate "0x0+20+20" "$text" "$1"
+  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
+  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor"    -annotate "0x0+${margin}+${margin}"   "$text" "$1"
+}
+
+image_title() {
+  # $1 = image path
+  # $2 = title
+
+  # shellcheck disable=SC2154
+  char1=$(upper_case "${fontcolor:0:1}")
+  case $char1 in
+  9 | A | B | C | D | E | F)
+    shadow_color="000000" ;;
+  *)
+    shadow_color="FFFFFF" ;;
+  esac
+  text=$(text_resolve "$2")
+
+  log "TITLE: [$title] in $gravity ..."
+  margin2=$((margin + 1))
+  # shellcheck disable=SC2154
+  mogrify -gravity "$gravity" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
+  mogrify -gravity "$gravity" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor"    -annotate "0x0+${margin}+${margin}"   "$text" "$1"
 }
 #####################################################################
 ################### DO NOT MODIFY BELOW THIS LINE ###################
