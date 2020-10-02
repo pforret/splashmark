@@ -136,7 +136,7 @@ Download unsplash pics and
     search examples/code.jpg code
 ![splashmark.sh -p fonts/FiraCode-Regular.ttf -x median,light -1 "font: Fira Code, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} search examples/code.jpg code](examples/code.jpg)
 
-    -w 800 -c 240 -e dark,blur,grain -h 75 -g West -i "This is Paris" search examples/paris.jpg paris
+    splashmark.sh -w 800 -c 240 -e dark,blur,grain -h 75 -g West -i "This is Paris" search examples/paris.jpg paris
 ![splashmark.sh -w 800 -c 240 -e dark,blur,grain -i "This is Paris" search examples/paris.jpg paris](examples/paris.jpg)
   
 ---
