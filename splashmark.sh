@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-### ==============================================================================
-### SO HOW DO YOU PROCEED WITH YOUR SCRIPT?
-### 1. define the options/parameters and defaults you need in list_options()
-### 2. implement the different actions in main() with helper functions
-### 3. implement helper functions you defined in previous step
-### 4. add binaries your script needs (e.g. ffmpeg, jq) to verify_programs
-### ==============================================================================
-
 ### Created by Peter Forret ( pforret ) on 2020-09-28
 script_version="0.0.0" # if there is a VERSION.md in this script's folder, it will take priority for version number
 readonly script_author="peter@forret.com"
@@ -27,7 +19,7 @@ option|c|height|image height for cropping|0
 option|p|fonttype|font type family to use|Courier-Bold
 option|q|fontsize|font size to use|12
 option|r|fontcolor|font color to use|FFFFFF
-option|x|effect|use affect on image: bw/blur/dark/grain/light/median/paint/pixel|
+option|x|effect|use effect on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|
@@ -47,7 +39,6 @@ main() {
   log "Program: $script_basename $script_version"
   log "Updated: $script_modified"
   log "Run as : $USER@$HOSTNAME"
-  # add programs you need in your script here, like tar, wget, ffmpeg, rsync ...
   verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool convert mogrify
   prep_log_and_temp_dir
 
