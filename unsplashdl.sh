@@ -22,11 +22,12 @@ flag|q|quiet|no output
 flag|v|verbose|output more
 option|l|log_dir|folder for log files |log
 option|t|tmp_dir|folder for temp files|.tmp
-option|w|width|image width for resizing|1080
+option|w|width|image width for resizing|800
 option|c|height|image height for cropping|0
 option|p|fonttype|font type family to use|Courier-Bold
-option|q|fontsize|font size to use|15
+option|q|fontsize|font size to use|12
 option|r|fontcolor|font color to use|FFFFFF
+option|x|effect|use affect on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|
@@ -47,7 +48,7 @@ main() {
   log "Updated: $script_modified"
   log "Run as : $USER@$HOSTNAME"
   # add programs you need in your script here, like tar, wget, ffmpeg, rsync ...
-  verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool convert
+  verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool convert mogrify
   prep_log_and_temp_dir
 
   action=$(lower_case "$action")
@@ -92,7 +93,7 @@ unsplash_api() {
   api_endpoint="https://api.unsplash.com"
   full_url="$api_endpoint$1"
   if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
-    die "You need Unsplash API keys -  please create and copy them from https://unsplash.com/oauth/applications"
+    die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
   fi
   if [[ $full_url =~ "?" ]]; then
     # already has querystring
@@ -109,8 +110,12 @@ unsplash_api() {
     # only the data once
     log "URL = [$full_url]"
     curl -s "$full_url" >"$cached"
+    if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
+      rm "$cached"
+      die "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
+    fi
   fi
-  jq <"$cached" "${2:-.}" |
+  < "$cached" jq "${2:-.}" |
     sed 's/"//g' |
     sed 's/,$//' |
     tee "$tmp_dir/query.$uniq$2.txt"
@@ -150,7 +155,7 @@ set_exif() {
 
   if [[ -n "$exif_val" ]]; then
     log "EXIF: set [$exif_key] to [$exif_val] for [$filename]"
-    exiftool -overwrite_original -"$exif_key"="$exif_val" "$filename" >/dev/null
+    exiftool -overwrite_original -"$exif_key"="$exif_val" "$filename" >/dev/null 2>/dev/null
   fi
 }
 
@@ -161,20 +166,29 @@ image_prepare() {
   # shellcheck disable=SC2154
   if [[ $height -gt 0 ]]; then
     log "Resize & crop image to $width x $height --> $2"
-    convert "$1" -gravity Center -resize "${width}"x -crop "${width}x${height}+0+0" +repage "$2"
+    convert "$1" -gravity Center -resize "${width}"x -crop "${width}x${height}+0+0" +repage -quality 95% "$2"
   else
     log "Resize image to $width wide --> $2"
-    convert "$1" -gravity Center -resize "${width}"x "$2"
+    convert "$1" -gravity Center -resize "${width}"x -quality 95%  "$2"
   fi
   if [[ -f "$2" ]]; then
     set_exif "$2" "Artist" "$photographer"
+    set_exif "$2" "OwnerID" "$photographer"
     set_exif "$2" "OwnerName" "$photographer"
     set_exif "$2" "Credit" "unsplash.com"
     set_exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
   fi
+  # shellcheck disable=SC2154
+  if [[ -n "$effect" ]] ; then
+    image_effect "$2" "$effect"
+  fi
+  # shellcheck disable=SC2154
   [[ -n "$northwest" ]] && image_watermark "$2" NorthWest "$northwest"
+  # shellcheck disable=SC2154
   [[ -n "$northeast" ]] && image_watermark "$2" NorthEast "$northeast"
+  # shellcheck disable=SC2154
   [[ -n "$southwest" ]] && image_watermark "$2" SouthWest "$southwest"
+  # shellcheck disable=SC2154
   [[ -n "$southeast" ]] && image_watermark "$2" SouthEast "$southeast"
 }
 
@@ -183,7 +197,32 @@ text_resolve() {
   | sed "s|{copyright}|Photo by {photographer} on Unsplash.com|" \
   | sed "s|{copyright2}|© {photographer} » Unsplash.com|" \
   | sed "s|{photographer}|$photographer|" \
-  | sed "s|{url}|$url|"
+  | sed "s|{url}|$url|" \
+  | sed "s|https://||"
+}
+
+image_effect(){
+  # $1 = image path
+  # $2 = effect name
+  # shellcheck disable=SC2154
+  for fx1 in $(echo "$effect" | tr ',' "\n") ; do
+    log "EFX : $fx1"
+    case "$fx1" in
+    blur)             mogrify -blur 5x5 "$1"  ;;
+    dark|darken)      mogrify -modulate 50,100 "$1" ;;
+    grain)            mogrify -attenuate .9 +noise Gaussian "$1" ;;
+    light|lighten)    mogrify -modulate 150,100 "$1"  ;;
+    median)           mogrify -median 5 "$1"  ;;
+    monochrome|bw)    mogrify -modulate 100,1 "$1"  ;;
+    norm|normalize)   mogrify -normalize "$1" ;;
+    paint)            mogrify -paint 5  "$1"  ;;
+    pixel)            mogrify -resize 10% -scale 1000%  "$1"  ;;
+    sketch)           mogrify -sketch 5x5+45  "$1"  ;;
+    *)
+      # shellcheck disable=SC2086
+      eval mogrify $effect "$1"
+    esac
+  done
 }
 
 image_watermark() {
@@ -195,13 +234,16 @@ image_watermark() {
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
-  9 | A | B | C | D | E | F) fontbg="000000" ;;
-  default) fontbg="FFFFFF" ;;
+  9 | A | B | C | D | E | F)
+    shadow_color="000000" ;;
+  *)
+    shadow_color="FFFFFF" ;;
   esac
   text=$(text_resolve "$3")
 
-  log "Set text [$text] in $2 corner ..."
-  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontbg" -annotate "0x0+21+21" "$text" "$1"
+  log "MARK: [$text] in $2 corner ..."
+  # shellcheck disable=SC2154
+  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$shadow_color" -annotate "0x0+21+21" "$text" "$1"
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor" -annotate "0x0+20+20" "$text" "$1"
 }
 #####################################################################
