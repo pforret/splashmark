@@ -633,12 +633,6 @@ lookup_script_data() {
   log "In folder : [$script_install_folder]"
 
   [[ -f "$script_install_folder/VERSION.md" ]] && script_version=$(cat "$script_install_folder/VERSION.md")
-  if git status >/dev/null; then
-    readonly in_git_repo=1
-  else
-    # shellcheck disable=SC2034
-    readonly in_git_repo=0
-  fi
 }
 
 prep_log_and_temp_dir() {
