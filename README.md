@@ -14,29 +14,29 @@ Download unsplash pics and ...
 * add attribution (EXIF/IPTC meta data)
 * add watermarks (Unsplash URL or other)
 
-    Program: splashmark.sh 1.1.0 created on 2020-09-28 by peter@forret.com
-    Updated: Oct  2 13:35:29 2020
-    Usage: splashmark.sh [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <height>] [-p <fonttype>] [-q <fontsize>] [-r <fontcolor>] [-x <effect>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] <action> <output> <input>
-    Flags, options and parameters:
-        -h|--help      : [flag] show usage [default: off]
-        -q|--quiet     : [flag] no output [default: off]
-        -v|--verbose   : [flag] output more [default: off]
-        -l|--log_dir <val>: [optn] folder for log files   [default: log]
-        -t|--tmp_dir <val>: [optn] folder for temp files  [default: .tmp]
-        -w|--width <val>: [optn] image width for resizing  [default: 800]
-        -c|--height <val>: [optn] image height for cropping  [default: 0]
-        -p|--fonttype <val>: [optn] font type family to use  [default: Courier-Bold]
-        -q|--fontsize <val>: [optn] font size to use  [default: 12]
-        -r|--fontcolor <val>: [optn] font color to use  [default: FFFFFF]
-        -x|--effect <val>: [optn] use effect on image: monochrome/blur/pixel
-        -1|--northwest <val>: [optn] text to put in left top
-        -2|--northeast <val>: [optn] text to put in right top  [default: {url}]
-        -3|--southwest <val>: [optn] text to put in left bottom
-        -4|--southeast <val>: [optn] text to put in right bottom  [default: {copyright2}]
-        <action>  : [parameter] action to perform: download/search
-        <output>  : [parameter] output file
-        <input>   : [parameter] URL or search term  
-        
+        Program: splashmark 2.0.0 created on 2020-09-28 by peter@forret.com
+        Updated: Oct  2 14:58:09 2020
+        Usage: splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <height>] [-p <fonttype>] [-q <fontsize>] [-r <fontcolor>] [-x <effect>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] <action> <output> <input>
+        Flags, options and parameters:
+            -h|--help      : [flag] show usage [default: off]
+            -q|--quiet     : [flag] no output [default: off]
+            -v|--verbose   : [flag] output more [default: off]
+            -l|--log_dir <val>: [optn] folder for log files   [default: log]
+            -t|--tmp_dir <val>: [optn] folder for temp files  [default: .tmp]
+            -w|--width <val>: [optn] image width for resizing  [default: 800]
+            -c|--height <val>: [optn] image height for cropping  [default: 0]
+            -p|--fonttype <val>: [optn] font type family to use  [default: Courier-Bold]
+            -q|--fontsize <val>: [optn] font size to use  [default: 12]
+            -r|--fontcolor <val>: [optn] font color to use  [default: FFFFFF]
+            -x|--effect <val>: [optn] use effect on image: bw/blur/dark/grain/light/median/paint/pixel
+            -1|--northwest <val>: [optn] text to put in left top
+            -2|--northeast <val>: [optn] text to put in right top  [default: {url}]
+            -3|--southwest <val>: [optn] text to put in left bottom
+            -4|--southeast <val>: [optn] text to put in right bottom  [default: {copyright2}]
+            <action>  : [parameter] action to perform: download/search
+            <output>  : [parameter] output file
+            <input>   : [parameter] URL or search term      
+                 
 Example (verbose) output:
 
         >> splashmark.sh -v search examples/night.jpg night
