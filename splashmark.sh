@@ -237,6 +237,7 @@ image_watermark() {
   text=$(text_resolve "$3")
 
   log "MARK: [$text] in $2 corner ..."
+  # shellcheck disable=SC2154
   margin2=$((margin + 1))
   # shellcheck disable=SC2154
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
@@ -257,6 +258,7 @@ image_title() {
   esac
   text=$(text_resolve "$2")
 
+  # shellcheck disable=SC2154
   log "TITLE: [$title] in $gravity ..."
   margin2=$((margin + 1))
   # shellcheck disable=SC2154

@@ -4,6 +4,7 @@
 ![Bash CI](https://github.com/pforret/splashmark/workflows/Bash%20CI/badge.svg)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/pforret/splashmark)
 ![GitHub issues](https://img.shields.io/github/issues-raw/pforret/splashmark)
+[![basher install](https://img.shields.io/badge/basher-install-white?logo=gnu-bash&style=flat)](https://basher.gitparade.com/package/)
 
 # splashmark
 
