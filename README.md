@@ -8,6 +8,8 @@
 
 # splashmark
 
+![splashmark logo](splashmark.jpg)
+
 Download unsplash pics and
 * resize
 * crop
