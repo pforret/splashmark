@@ -221,9 +221,9 @@ image_effect(){
     log "EFX : $fx1"
     case "$fx1" in
     blur)             mogrify -blur 5x5 "$1"  ;;
-    dark|darken)      mogrify -modulate 50,100 "$1" ;;
-    grain)            mogrify -attenuate .9 +noise Gaussian "$1" ;;
-    light|lighten)    mogrify -modulate 150,100 "$1"  ;;
+    dark|darken)      mogrify -fill black -colorize 50% "$1" ;;
+    grain)            mogrify -attenuate .95 +noise Gaussian "$1" ;;
+    light|lighten)    mogrify -fill white -colorize 50% "$1"  ;;
     median)           mogrify -median 5 "$1"  ;;
     monochrome|bw)    mogrify -modulate 100,1 "$1"  ;;
     norm|normalize)   mogrify -normalize "$1" ;;
