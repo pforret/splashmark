@@ -22,8 +22,8 @@ option|g|gravity|title gravity|Center
 option|i|title|big text to put in center|
 option|j|titlesize|font size for title|60
 option|l|log_dir|folder for log files |log
-option|m|margin|margin for watermarks|12
-option|o|fontsize|font size for watermarks|12
+option|m|margin|margin for watermarks|15
+option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|Courier-Bold
 option|r|fontcolor|font color to use|FFFFFF
 option|t|tmp_dir|folder for temp files|.tmp
@@ -156,6 +156,22 @@ set_exif() {
 image_prepare() {
   # $1 = input file
   # $2 = output file
+
+  font_list="$tmp_dir/magick.fonts.txt"
+  if [[ ! -f "$font_list" ]] ; then
+    convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' > "$font_list"
+  fi
+  if [[ -f "$fonttype" ]] ; then
+    log "FONT [$fonttype] exists as a font file"
+  elif grep -q "$fonttype" "$font_list" ; then
+    log "FONT [$fonttype] exists as a standard font"
+  elif [[ -f "$script_install_folder/fonts/$fonttype" ]] ; then
+    fonttype="$script_install_folder/fonts/$fonttype"
+    log "FONT [$fonttype] exists as a splashmark font"
+  else
+    die "FONT [$fonttype] cannot be found on this system"
+  fi
+
 
   # shellcheck disable=SC2154
   if [[ $height -gt 0 ]]; then
