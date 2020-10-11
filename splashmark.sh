@@ -17,6 +17,7 @@ option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|
 option|4|southeast|text to put in right bottom|{copyright2}
 option|c|height|image height for cropping|0
+option|d|randomize|take a random picture in the first N results|1
 option|e|effect|use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|g|gravity|title gravity|Center
 option|i|title|big text to put in center|
@@ -111,8 +112,7 @@ unsplash_api() {
   fi
   < "$cached" jq "${2:-.}" |
     sed 's/"//g' |
-    sed 's/,$//' |
-    tee "$tmp_dir/query.$uniq$2.txt"
+    sed 's/,$//'
 }
 
 unsplash_metadata() {
@@ -139,7 +139,16 @@ unsplash_download() {
 unsplash_search() {
   # $1 = keyword(s)
   # returns first result
-  unsplash_api "/search/photos/?query=$1" ".results[0].id"
+  if [[ "$randomize" == 1 ]] ; then
+    unsplash_api "/search/photos/?query=$1" ".results[0].id"
+  else
+    choose_from=$(unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
+    log "PICK: $choose_from results in query"
+    [[ $choose_from -gt $randomize ]] && choose_from=$randomize
+    chosen=$((RANDOM % $choose_from))
+    log "PICK: photo $chosen from first $choose_from results"
+    unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
+  fi
 }
 
 set_exif() {
