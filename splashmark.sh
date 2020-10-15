@@ -46,6 +46,10 @@ main() {
   verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool convert mogrify
   prep_log_and_temp_dir
 
+  if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
+    die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+  fi
+
   action=$(lower_case "$action")
   case $action in
   download | d)
@@ -87,9 +91,6 @@ unsplash_api() {
   # $2 = jq query path
   api_endpoint="https://api.unsplash.com"
   full_url="$api_endpoint$1"
-  if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
-    die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
-  fi
   if [[ $full_url =~ "?" ]]; then
     # already has querystring
     full_url="$full_url&client_id=$UNSPLASH_ACCESSKEY"
