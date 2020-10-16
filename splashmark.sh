@@ -19,13 +19,15 @@ option|4|southeast|text to put in right bottom|{copyright2}
 option|c|height|image height for cropping|0
 option|d|randomize|take a random picture in the first N results|1
 option|e|effect|use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel|
-option|g|gravity|title gravity|Center
+option|g|gravity|title alignment left/center/right|center
+option|z|titlesize|font size for title|75
 option|i|title|big text to put in center|
-option|j|titlesize|font size for title|60
+option|j|subtitlesize|font size for subtitle|50
+option|k|subtitle|big text to put in center|
 option|l|log_dir|folder for log files |log
 option|m|margin|margin for watermarks|15
 option|o|fontsize|font size for watermarks|15
-option|p|fonttype|font type family to use|Courier-Bold
+option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
 option|t|tmp_dir|folder for temp files|.tmp
 option|w|width|image width for resizing|800
@@ -60,7 +62,7 @@ main() {
       image_file=$(unsplash_download "$photo_id")
       unsplash_metadata "$photo_id"
       # shellcheck disable=SC2154
-      image_prepare "$image_file" "$output"
+      image_modify "$image_file" "$output"
       out "$output"
     fi
     ;;
@@ -71,7 +73,7 @@ main() {
       log "Found photo ID = $photo_id"
       image_file=$(unsplash_download "$photo_id")
       unsplash_metadata "$photo_id"
-      image_prepare "$image_file" "$output"
+      image_modify "$image_file" "$output"
       out "$output"
     fi
     ;;
@@ -164,7 +166,7 @@ set_exif() {
   fi
 }
 
-image_prepare() {
+image_modify() {
   # $1 = input file
   # $2 = output file
 
@@ -183,15 +185,16 @@ image_prepare() {
     die "FONT [$fonttype] cannot be found on this system"
   fi
 
-
+  ## scale and crop
   # shellcheck disable=SC2154
   if [[ $height -gt 0 ]]; then
     log "CROP: image to $width x $height --> $2"
-    convert "$1" -gravity Center -resize "${width}"x -crop "${width}x${height}+0+0" +repage -quality 95% "$2"
+    convert "$1" -gravity Center -resize "${width}x${height}^" -crop "${width}x${height}+0+0" +repage -quality 95% "$2"
   else
     log "SIZE: to $width wide --> $2"
     convert "$1" -gravity Center -resize "${width}"x -quality 95%  "$2"
   fi
+  ## set EXIF/IPTC tags
   if [[ -f "$2" ]]; then
     set_exif "$2" "Artist" "$photographer"
     set_exif "$2" "OwnerID" "$photographer"
@@ -199,10 +202,12 @@ image_prepare() {
     set_exif "$2" "Credit" "unsplash.com"
     set_exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
   fi
+  ## do visual effects
   # shellcheck disable=SC2154
   if [[ -n "$effect" ]] ; then
     image_effect "$2" "$effect"
   fi
+  ## add small watermarks in the corners
   # shellcheck disable=SC2154
   [[ -n "$northwest" ]] && image_watermark "$2" NorthWest "$northwest"
   # shellcheck disable=SC2154
@@ -211,8 +216,10 @@ image_prepare() {
   [[ -n "$southwest" ]] && image_watermark "$2" SouthWest "$southwest"
   # shellcheck disable=SC2154
   [[ -n "$southeast" ]] && image_watermark "$2" SouthEast "$southeast"
+
+  ## add large title watermarks in the middle
   # shellcheck disable=SC2154
-  [[ -n "$title" ]] && image_title "$2" "$title"
+  [[ -n "$title" || -n "$subtitle" ]] && image_title "$2"
 }
 
 text_resolve() {
@@ -257,9 +264,9 @@ image_watermark() {
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
   9 | A | B | C | D | E | F)
-    shadow_color="000000" ;;
+    shadow_color="0008" ;;
   *)
-    shadow_color="FFFFFF" ;;
+    shadow_color="FFF8" ;;
   esac
   text=$(text_resolve "$3")
 
@@ -271,9 +278,19 @@ image_watermark() {
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor"    -annotate "0x0+${margin}+${margin}"   "$text" "$1"
 }
 
+choose_position(){
+  position="$1"
+  # shellcheck disable=SC2154
+  case $(lower_case "$gravity") in
+    left|west)  position="${position}West" ;;
+    right|east) position="${position}East" ;;
+  esac
+  [[ -z "$position" ]] && position="Center"
+  echo "$position"
+}
+
 image_title() {
   # $1 = image path
-  # $2 = title
 
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
@@ -283,15 +300,40 @@ image_title() {
   *)
     shadow_color="FFFFFF" ;;
   esac
-  text=$(text_resolve "$2")
-
-  # shellcheck disable=SC2154
-  log "TITLE: [$title] in $gravity ..."
-  margin2=$((margin + 1))
-  # shellcheck disable=SC2154
-  mogrify -gravity "$gravity" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
-  mogrify -gravity "$gravity" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor"    -annotate "0x0+${margin}+${margin}"   "$text" "$1"
+  margin1=$((margin * 2))
+  margin2=$((margin1 + 1))
+  if [[ -n "$title" ]] ; then
+    text=$(text_resolve "$title")
+    position=""
+    [[ -n "$subtitle" ]] && position="North"
+    position=$(choose_position "$position")
+    log "MARK: title [$text] in $position ..."
+    # shellcheck disable=SC2154
+    if [[ $(lower_case "$gravity") == "center" ]] ; then
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor"    -annotate "0x0+0+${margin1}"  "$text" "$1"
+    else
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor"    -annotate "0x0+${margin1}+${margin1}"   "$text" "$1"
+    fi
+  fi
+  if [[ -n "$subtitle" ]] ; then
+    text=$(text_resolve "$subtitle")
+    position=""
+    [[ -n "$title" ]] && position="South"
+    position=$(choose_position "$position")
+    log "MARK: subtitle [$text] in $position ..."
+    # shellcheck disable=SC2154
+    if [[ $(lower_case "$gravity") == "center" ]] ; then
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor"    -annotate "0x0+0+${margin1}"  "$text" "$1"
+    else
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor"    -annotate "0x0+${margin1}+${margin1}"   "$text" "$1"
+    fi
+  fi
 }
+
 #####################################################################
 ################### DO NOT MODIFY BELOW THIS LINE ###################
 

@@ -117,40 +117,7 @@ Download unsplash pics and
         # splashmark finished after 4 seconds   
 
 ## Examples
-
-    splashmark search examples/night.jpg night
-![splashmark search examples/night.jpg night](examples/night.jpg)
-
-    splashmark -w 720 -c 400 search examples/sunny.jpg sunny
-![splashmark -w 720 -c 400 search examples/sunny.jpg sunny](examples/sunny.jpg)
-
-    splashmark -w 720 -c 400 -q 25 -p "Times-Roman" search examples/cocktail.jpg cocktail
-![splashmark -w 720 -c 400 -q 25 -p "Times-Roman" search examples/cocktail.jpg cocktail](examples/cocktail.jpg)
-
-    splashmark -w 720 -c 480 -e light -r 660066 search examples/horse.jpg horse
-![splashmark -w 720 -c 480 -x light -r 660066 search examples/horse.jpg horse](examples/horse.jpg)
-    
-    splashmark -w 600 -c 600 -p "AvantGarde-Demi" -q 16 -e median,paint,grain  search examples/steak.gif steak
-![splashmark -w 600 -c 600 -p "AvantGarde-Demi" -q 16 -x median,paint,grain  search examples/steak.gif steak](examples/steak.gif)
-
-    splashmark --width 400 --effect grain,bw,light --fontcolor 333333 search examples/puppy.png puppy
-![splashmark --width 400 --effect grain,bw,light --fontcolor 333333 search examples/puppy.png puppy](examples/puppy.png)
-
-    splashmark \
-    -p fonts/FiraCode-Regular.ttf \
-    -x median,light \
-    -1 "font: Fira Code, via Google Fonts" \
-    -2 "Photo: {url}" \
-    -3 "www.example.com" \
-    -4 {copyright} \
-    search examples/code.jpg code
-![splashmark -p fonts/FiraCode-Regular.ttf -x median,light -1 "font: Fira Code, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} search examples/code.jpg code](examples/code.jpg)
-
-    splashmark -w 800 -c 240 -e dark,blur,grain -h 75 -g West -i "This is Paris" search examples/paris.jpg paris
-![splashmark -w 800 -c 240 -e dark,blur,grain -i "This is Paris" search examples/paris.jpg paris](examples/paris.jpg)
-  
-    splashmark -w 1280 -c 640 -i github.com/pforret/splashmark -j 50 -e dark,grain -3 "created with pforret/splashmark" -p fonts/FiraCode-Regular.ttf search splashmark.jpg splash
-![splashmark -w 800 -c 240 -e dark,blur,grain -i "This is Paris" search examples/paris.jpg paris](splashmark.jpg)
+check [EXAMPLES.md](examples.md)
 
 ---
 
