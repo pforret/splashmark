@@ -117,7 +117,7 @@ Download unsplash pics and
         # splashmark finished after 4 seconds   
 
 ## Examples
-check [EXAMPLES.md](examples.md)
+check [EXAMPLES.md](https://github.com/pforret/splashmark/blob/master/EXAMPLES.md)
 
 ---
 
