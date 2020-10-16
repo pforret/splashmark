@@ -1,8 +1,10 @@
+# always call with bash_unit <folder>/*.sh
 # test functions should start with test_
 
 script=""
 [[ -f ../splashmark.sh ]] && script="../splashmark.sh"
 [[ -f  ./splashmark.sh ]] && script="./splashmark.sh"
+[[ -z "$script" ]] &&  fail "Run this from the root or from the tests folder"
 
 test_executable_script_found() {
 	assert_not_equals "" "$script"	"Executable script could not be found"

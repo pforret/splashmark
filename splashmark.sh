@@ -140,13 +140,14 @@ unsplash_download() {
 unsplash_search() {
   # $1 = keyword(s)
   # returns first result
+  # shellcheck disable=SC2154
   if [[ "$randomize" == 1 ]] ; then
     unsplash_api "/search/photos/?query=$1" ".results[0].id"
   else
     choose_from=$(unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
     log "PICK: $choose_from results in query"
     [[ $choose_from -gt $randomize ]] && choose_from=$randomize
-    chosen=$((RANDOM % $choose_from))
+    chosen=$((RANDOM % choose_from))
     log "PICK: photo $chosen from first $choose_from results"
     unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
   fi
