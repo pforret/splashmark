@@ -8,7 +8,7 @@
 
 # splashmark
 
-![splashmark logo](splashmark.jpg)
+![splashmark logo](assets/splashmark.jpg)
 
 Download unsplash pics and
 * resize
@@ -119,6 +119,9 @@ Download unsplash pics and
 ## Examples
 check [EXAMPLES.md](https://github.com/pforret/splashmark/blob/master/EXAMPLES.md)
 
+
+## Common image sizes
+* [facebook-profile-picture-size-and-more](https://www.godaddy.com/garage/facebook-profile-picture-size-and-more/)
 ---
 
 &copy; 2020 [Peter Forret](https://github.com/pforret)

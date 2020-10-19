@@ -16,11 +16,10 @@ option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|
 option|4|southeast|text to put in right bottom|{copyright2}
-option|c|height|image height for cropping|0
+option|c|crop|image height for cropping|0
 option|d|randomize|take a random picture in the first N results|1
 option|e|effect|use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|g|gravity|title alignment left/center/right|center
-option|z|titlesize|font size for title|75
 option|i|title|big text to put in center|
 option|j|subtitlesize|font size for subtitle|50
 option|k|subtitle|big text to put in center|
@@ -30,7 +29,10 @@ option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
 option|t|tmp_dir|folder for temp files|.tmp
-option|w|width|image width for resizing|800
+option|u|url|source url (empty: get from Unsplash)|
+option|w|width|image width for resizing|1200
+option|x|photographer|photographer name (empty: get from Unsplash)|
+option|z|titlesize|font size for title|80
 param|1|action|action to perform: download/search
 param|1|output|output file
 param|1|input|URL or search term
@@ -48,34 +50,53 @@ main() {
   verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool convert mogrify
   prep_log_and_temp_dir
 
-  if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
-    die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
-  fi
-
   action=$(lower_case "$action")
   case $action in
-  download | d)
+  download|d|unsplash)
+    if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
+      die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+    fi
+    image_source="unsplash"
     # shellcheck disable=SC2154
     photo_id=$(basename "$input")
     if [[ -n "$photo_id" ]]; then
       log "Found photo ID = $photo_id"
-      image_file=$(unsplash_download "$photo_id")
-      unsplash_metadata "$photo_id"
+      image_file=$(download_image_from_unsplash "$photo_id")
+      get_metadata_from_unsplash "$photo_id"
       # shellcheck disable=SC2154
       image_modify "$image_file" "$output"
       out "$output"
     fi
     ;;
 
-  search | s)
-    photo_id=$(unsplash_search "$input")
+  search|s)
+    if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
+      die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+    fi
+    image_source="unsplash"
+    photo_id=$(search_from_unsplash "$input")
     if [[ -n "$photo_id" ]]; then
       log "Found photo ID = $photo_id"
-      image_file=$(unsplash_download "$photo_id")
-      unsplash_metadata "$photo_id"
+      image_file=$(download_image_from_unsplash "$photo_id")
+      get_metadata_from_unsplash "$photo_id"
       image_modify "$image_file" "$output"
       out "$output"
     fi
+    ;;
+
+  file|f)
+    image_source="file"
+    [[ ! -f "$input" ]] && die "Cannot find input file [$input]"
+    image_modify "$input" "$output"
+    out "$output"
+    ;;
+
+  url|u)
+    image_source="url"
+    image_file=$(download_image_from_url "$input")
+    [[ ! -f "$image_file" ]] && die "Cannot download input image [$input]"
+    image_modify "$image_file" "$output"
+    out "$output"
     ;;
 
   *)
@@ -91,8 +112,10 @@ main() {
 unsplash_api() {
   # $1 = relative API URL
   # $2 = jq query path
-  api_endpoint="https://api.unsplash.com"
-  full_url="$api_endpoint$1"
+  local uniq
+  local api_endpoint="https://api.unsplash.com"
+  local full_url="$api_endpoint$1"
+  local show_url="$api_endpoint$1"
   if [[ $full_url =~ "?" ]]; then
     # already has querystring
     full_url="$full_url&client_id=$UNSPLASH_ACCESSKEY"
@@ -102,44 +125,64 @@ unsplash_api() {
   fi
   uniq=$(echo "$full_url" | hash 8)
   # shellcheck disable=SC2154
-  cached="$tmp_dir/unsplash.$uniq.json"
-  log "Cache [$cached]"
-  if [[ ! -f "$cached" ]] || grep -c '{' "$cached" >/dev/null; then
-    # only the data once
-    log "URL = [$full_url]"
-    curl -s "$full_url" >"$cached"
+  local cached="$tmp_dir/unsplash.$uniq.json"
+  if [[ ! -f "$cached" ]] ; then
+    # only get the data once
+    log "API = [$show_url]"
+    curl -s "$full_url" > "$cached"
     if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
+      # remove if response is too small to be a valid answer
       rm "$cached"
-      die "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
+      alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
     fi
+  else
+    log "API = [$cached]"
   fi
   < "$cached" jq "${2:-.}" |
     sed 's/"//g' |
     sed 's/,$//'
 }
 
-unsplash_metadata() {
-  photographer=$(unsplash_api "/photos/$1" ".user.name")
-  url=$(unsplash_api "/photos/$1" ".links.html")
-  log "Photographer = [$photographer]"
+get_metadata_from_unsplash() {
+  # only get metadata if it was not yet specified as an option
+  [[ -z "$photographer" ]]  && photographer=$(unsplash_api "/photos/$1" ".user.name")
+  [[ -z "$url" ]] && url=$(unsplash_api "/photos/$1" ".links.html")
 }
 
-unsplash_download() {
+download_image_from_unsplash() {
   # $1 = photo_id
   # returns path of downloaded file
   photo_id=$(basename "$1")
   image_url=$(unsplash_api "/photos/$photo_id" .urls.regular)
-  log "Download = [$image_url]"
-  from_unsplash="$tmp_dir/$photo_id.jpg"
-  log "Original file = [$from_unsplash]"
-  if [[ ! -f "$from_unsplash" ]]; then
-    curl -s -o "$from_unsplash" "$image_url"
-    [[ ! -f "$from_unsplash" ]] && die "download [$image_url] failed"
+  cached_image="$tmp_dir/$photo_id.jpg"
+  if [[ ! -f "$cached_image" ]]; then
+    log "IMG = [$image_url]"
+    curl -s -o "$cached_image" "$image_url"
+  else
+    log "IMG = [$cached_image]"
   fi
-  echo "$from_unsplash"
+  [[ ! -f "$cached_image" ]] && die "download [$image_url] failed"
+  echo "$cached_image"
 }
 
-unsplash_search() {
+download_image_from_url(){
+  # $1 = url
+  local uniq
+  local extension=".jpg"
+  [[ "$1" =~ .png ]] && extension=".png"
+  [[ "$1" =~ .gif ]] && extension=".gif"
+  uniq=$(echo "$1" | hash 8)
+  cached_image="$tmp_dir/image.$uniq$extension"
+  if [[ ! -f "$cached_image" ]] ; then
+    log "IMG = [$1]"
+    curl -s -o "$cached_image" "$1"
+  else
+    log "IMG = [$cached_image]"
+  fi
+  echo "$cached_image"
+}
+
+search_from_unsplash() {
   # $1 = keyword(s)
   # returns first result
   # shellcheck disable=SC2154
@@ -166,6 +209,59 @@ set_exif() {
   fi
 }
 
+set_metadata_tags() {
+  # $1 = type
+  # $2 = filename
+  # https://exiftool.org/TagNames/index.html
+  #  ExifTool Version Number         : 10.10
+  #  Artist                          : Artist
+  #  By-line                         : Author
+  #  By-line Title                   : Author Title
+  #  Caption-Abstract                : Caption
+  #  Category                        : Category
+  #  City                            : City
+  #  Copyright Notice                : Copyright
+  #  Country-Primary Location Name   : Country
+  #  Creator                         : Creator
+  #  Credit                          : Credit
+  #  Date Created                    : 2020:10:18
+  #  File Name                       : metadata.jpg
+  #  Headline                        : Headline
+  #  ImageDescription                : ImageDescription
+  #  Keywords                        : Keywords
+  #  Object Name                     : Document Title
+  #  Original Transmission Reference : Reference
+  #  Owner ID                        : OwnerID
+  #  Owner Name                      : OwnerName
+  #  Source                          : Source
+  #  Special Instructions            : Instructions
+  #  Sub-location                    : Sub-location
+  #  Supplemental Categories         : OtherCategories
+  #  Urgency                         : 1 (most urgent)
+  #  Writer-Editor                   : Caption Writer
+  set_exif "$2" "Writer-Editor" "$script_basename"
+  if [[ "$1" == "unsplash" ]] ; then
+    ## metadata comes from Unsplash
+    if [[ -f "$2" && -n ${photographer} ]]; then
+      set_exif "$2" "Artist" "$photographer"
+      set_exif "$2" "Creator" "$photographer"
+      set_exif "$2" "OwnerID" "$photographer"
+      set_exif "$2" "OwnerName" "$photographer"
+      set_exif "$2" "Credit" "Photo: $photographer on Unsplash.com"
+      set_exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
+    fi
+  else
+    ## metadata, if any, comes from command line options
+    if [[ -f "$2" && -n ${photographer} ]]; then
+      set_exif "$2" "Artist" "$photographer"
+      set_exif "$2" "Creator" "$photographer"
+      set_exif "$2" "OwnerID" "$photographer"
+      set_exif "$2" "OwnerName" "$photographer"
+      set_exif "$2" "ImageDescription" "Photo: $photographer"
+    fi
+  fi
+}
+
 image_modify() {
   # $1 = input file
   # $2 = output file
@@ -187,21 +283,16 @@ image_modify() {
 
   ## scale and crop
   # shellcheck disable=SC2154
-  if [[ $height -gt 0 ]]; then
-    log "CROP: image to $width x $height --> $2"
-    convert "$1" -gravity Center -resize "${width}x${height}^" -crop "${width}x${height}+0+0" +repage -quality 95% "$2"
+  if [[ $crop -gt 0 ]]; then
+    log "CROP: image to $width x $crop --> $2"
+    convert "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
   else
     log "SIZE: to $width wide --> $2"
     convert "$1" -gravity Center -resize "${width}"x -quality 95%  "$2"
   fi
   ## set EXIF/IPTC tags
-  if [[ -f "$2" ]]; then
-    set_exif "$2" "Artist" "$photographer"
-    set_exif "$2" "OwnerID" "$photographer"
-    set_exif "$2" "OwnerName" "$photographer"
-    set_exif "$2" "Credit" "unsplash.com"
-    set_exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
-  fi
+  set_metadata_tags "$image_source" "$2"
+
   ## do visual effects
   # shellcheck disable=SC2154
   if [[ -n "$effect" ]] ; then
@@ -223,12 +314,21 @@ image_modify() {
 }
 
 text_resolve() {
-  echo "$1" \
-  | sed "s|{copyright}|Photo by {photographer} on Unsplash.com|" \
-  | sed "s|{copyright2}|© {photographer} » Unsplash.com|" \
-  | sed "s|{photographer}|$photographer|" \
-  | sed "s|{url}|$url|" \
-  | sed "s|https://||"
+  if [[ $image_source == "unsplash" ]] ; then
+    echo "$1" \
+    | sed "s|{copyright}|Photo by {photographer} on Unsplash.com|" \
+    | sed "s|{copyright2}|© {photographer} » Unsplash.com|" \
+    | sed "s|{photographer}|$photographer|" \
+    | sed "s|{url}|$url|" \
+    | sed "s|https://||"
+  else
+    echo "$1" \
+    | sed "s|{copyright}|Photo by {photographer}|" \
+    | sed "s|{copyright2}|© {photographer}|" \
+    | sed "s|{photographer}|$photographer|" \
+    | sed "s|{url}|$url|" \
+    | sed "s|https://||"
+  fi
 }
 
 image_effect(){
@@ -296,9 +396,9 @@ image_title() {
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
   9 | A | B | C | D | E | F)
-    shadow_color="000000" ;;
+    shadow_color="0008" ;;
   *)
-    shadow_color="FFFFFF" ;;
+    shadow_color="FFF8" ;;
   esac
   margin1=$((margin * 2))
   margin2=$((margin1 + 1))
