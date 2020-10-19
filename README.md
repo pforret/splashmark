@@ -81,8 +81,8 @@ Download unsplash pics and
  
 ## Example (verbose) output:
 
-        >> splashmark -w 500 -p Caveat-Bold.ttf -e median,dark,grain -1 "font: Fira Code, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} -i "Just an example" -v search examples/examp
-           le.jpg beach
+        $ splashmark -w 800 -p UbuntuMono-Bold.ttf -e median,dark,grain -1 "font: UbuntuMono Bold, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} -i "Just an example" -v search examples/example.jpg beach
+        
         # Expect : 3 single parameter(s): action output input 
         # Found  : action=search 
         # Found  : output=examples/example.jpg 
@@ -92,7 +92,7 @@ Download unsplash pics and
         # Running: on Linux (#488-Microsoft Mon Sep 01 13:43:00 PST 2020) 
         # Verify : awk basename convert cut date dirname exiftool find grep head mkdir mogrify sed stat tput uname wc  
         # Cleanup folder: [.tmp] - delete files older than 1 day(s) 
-        # tmp_file: .tmp/2020-10-19.U9KiNG 
+        # tmp_file: .tmp/2020-10-19.xzAVHb 
         # Cleanup folder: [log] - delete files older than 7 day(s) 
         # log_file: log/splashmark.2020-10-19.log 
         # API = [.tmp/unsplash.f499e0ec.json] 
@@ -101,8 +101,8 @@ Download unsplash pics and
         # IMG = [.tmp/fbbxMwwKqZk.jpg] 
         # API = [.tmp/unsplash.4704b4c4.json] 
         # API = [.tmp/unsplash.4704b4c4.json] 
-        # FONT [./fonts/Caveat-Bold.ttf] exists as a splashmark font 
-        # SIZE: to 500 wide --> examples/example.jpg 
+        # FONT [./fonts/UbuntuMono-Bold.ttf] exists as a splashmark font 
+        # SIZE: to 800 wide --> examples/example.jpg 
         # EXIF: set [Writer-Editor] to [splashmark] for [examples/example.jpg] 
         # EXIF: set [Artist] to [Boxed Water Is Better] for [examples/example.jpg] 
         # EXIF: set [Creator] to [Boxed Water Is Better] for [examples/example.jpg] 
@@ -113,13 +113,13 @@ Download unsplash pics and
         # EFX : median 
         # EFX : dark 
         # EFX : grain 
-        # MARK: [font: Fira Code, via Google Fonts] in NorthWest corner ... 
+        # MARK: [font: UbuntuMono Bold, via Google Fonts] in NorthWest corner ... 
         # MARK: [Photo: unsplash.com/photos/fbbxMwwKqZk] in NorthEast corner ... 
         # MARK: [www.example.com] in SouthWest corner ... 
         # MARK: [Photo by Boxed Water Is Better on Unsplash.com] in SouthEast corner ... 
         # MARK: title [Just an example] in Center ... 
         examples/example.jpg
-        # splashmark finished after 4 seconds
+        # splashmark finished after 5 seconds
 
 ![example.jpg](examples/example.jpg)
 
