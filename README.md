@@ -53,6 +53,27 @@ Download unsplash pics and
         <output>  : [parameter] output file
         <input>   : [parameter] URL or search term
 
+      ### TIPS & EXAMPLES
+      * use splashmark download to download a specific Unsplash photo and work with it (requires free Unsplash API key)
+        splashmark download splash.jpg "https://unsplash.com/photos/xWOTojs1eg4"
+        splashmark -i "The Title" -k "The subtitle" download output.jpg "https://unsplash.com/photos/xWOTojs1eg4"
+        splashmark -i "Splash" -k "Subtitle" -w 1280 -c 640 -e dark,grain download output.jpg "https://unsplash.com/photos/xWOTojs1eg4"
+      * use splashmark search to search for a keyword on Unsplash and take the Nth photo (requires free Unsplash API key)
+        splashmark search waterfall.jpg waterfall
+        splashmark --randomize --title "Splash" --subtitle "Subtitle" --width 1280 --crop 640 --effect dark,grain search waterfall.jpg waterfall
+      * use splashmark file to add texts and effects to a existing image
+        splashmark file waterfall.jpg sources/original.jpg
+        splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file waterfall.jpg sources/original.jpg
+      * use splashmark url to add texts and effects to a image that will be downloaded from a URL
+        splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
+        splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
+      * to create a social image for Github
+        splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" -r EEEEEE -e median,dark,grain search search <repo>.jpg <keyword>
+      * to create a social image for Instagram
+        splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark search instagram.jpg clouds
+      * to create a social image for Facebook
+        splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark search facebook.jpg copacabana
+
 ## installation
 
 1. install requirements
