@@ -22,8 +22,13 @@ Download unsplash pics and
 
     Program: splashmark 2.3.0 created on 2020-09-28 by peter@forret.com
     Updated: 2020-10-10 13:45
-    Usage: splashmark [-h] [-q] [-v] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] [-c <crop>] [-d <randomize>] [-e <effect>] [-g <gravity>] [-i <title>] [-j <subtitlesize>] [-k <subtitle>] [-l <log_dir>] [-m <margin>] [-o <fontsize>] [-p <fonttyp
-    e>] [-r <fontcolor>] [-t <tmp_dir>] [-u <url>] [-w <width>] [-x <photographer>] [-z <titlesize>] <action> <output> <input>
+    Usage: splashmark [-h] [-q] [-v] 
+         [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] 
+         [-c <crop>] [-d <randomize>] [-e <effect>] [-g <gravity>] [-i <title>] 
+         [-j <subtitlesize>] [-k <subtitle>] [-l <log_dir>] [-m <margin>] 
+         [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] [-t <tmp_dir>] 
+         [-w <width>] [-x <photographer>] [-z <titlesize>] 
+         <action> <output> <input>
     Flags, options and parameters:
         -h|--help      : [flag] show usage [default: off]
         -q|--quiet     : [flag] no output [default: off]
@@ -45,7 +50,6 @@ Download unsplash pics and
         -p|--fonttype <val>: [optn] font type family to use  [default: FiraSansExtraCondensed-Bold.ttf]
         -r|--fontcolor <val>: [optn] font color to use  [default: FFFFFF]
         -t|--tmp_dir <val>: [optn] folder for temp files  [default: .tmp]
-        -u|--url <val>: [optn] source url (empty: get from Unsplash)
         -w|--width <val>: [optn] image width for resizing  [default: 1200]
         -x|--photographer <val>: [optn] photographer name (empty: get from Unsplash)
         -z|--titlesize <val>: [optn] font size for title  [default: 80]

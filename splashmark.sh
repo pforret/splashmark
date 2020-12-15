@@ -29,7 +29,6 @@ option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
 option|t|tmp_dir|folder for temp files|.tmp
-option|u|url|source url (empty: get from Unsplash)|
 option|w|width|image width for resizing|1200
 option|x|photographer|photographer name (empty: get from Unsplash)|
 option|z|titlesize|font size for title|80
