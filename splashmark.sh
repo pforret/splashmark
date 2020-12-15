@@ -33,7 +33,7 @@ option|u|url|source url (empty: get from Unsplash)|
 option|w|width|image width for resizing|1200
 option|x|photographer|photographer name (empty: get from Unsplash)|
 option|z|titlesize|font size for title|80
-param|1|action|action to perform: download/search
+param|1|action|action to perform: download/search/file/url
 param|1|output|output file
 param|1|input|URL or search term
 " | grep -v '^#'
@@ -53,6 +53,10 @@ main() {
   action=$(lower_case "$action")
   case $action in
   download|d|unsplash)
+    #TIP: use «splashmark download» to download a specific Unsplash photo and work with it (requires free Unsplash API key)
+    #TIP:> splashmark download splash.jpg "https://unsplash.com/photos/xWOTojs1eg4"
+    #TIP:> splashmark -i "The Title" -k "The subtitle" download output.jpg "https://unsplash.com/photos/xWOTojs1eg4"
+    #TIP:> splashmark -i "Splash" -k "Subtitle" -w 1280 -c 640 -e dark,grain download output.jpg "https://unsplash.com/photos/xWOTojs1eg4"
     if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
       die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
     fi
@@ -70,6 +74,9 @@ main() {
     ;;
 
   search|s)
+    #TIP: use «splashmark search» to search for a keyword on Unsplash and take the Nth photo (requires free Unsplash API key)
+    #TIP:> splashmark search waterfall.jpg waterfall
+    #TIP:> splashmark --randomize --title "Splash" --subtitle "Subtitle" --width  1280 --crop 640 --effect dark,grain search waterfall.jpg waterfall
     if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
       die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
     fi
@@ -85,6 +92,9 @@ main() {
     ;;
 
   file|f)
+    #TIP: use «splashmark file» to add texts and effects to a existing image
+    #TIP:> splashmark file waterfall.jpg sources/original.jpg
+    #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file waterfall.jpg sources/original.jpg
     image_source="file"
     [[ ! -f "$input" ]] && die "Cannot find input file [$input]"
     image_modify "$input" "$output"
@@ -92,6 +102,9 @@ main() {
     ;;
 
   url|u)
+    #TIP: use «splashmark url» to add texts and effects to a image that will be downloaded from a URL
+    #TIP:> splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
+    #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
     image_source="url"
     image_file=$(download_image_from_url "$input")
     [[ ! -f "$image_file" ]] && die "Cannot download input image [$input]"
@@ -105,6 +118,15 @@ main() {
   esac
 }
 
+#TIP: to create a social image for Github
+#TIP:> splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" -r EEEEEE -e median,dark,grain search search <repo>.jpg <keyword>
+#TIP: to create a social image for Instagram
+#TIP:> splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark search instagram.jpg clouds
+#TIP: to create a social image for Facebook
+#TIP:> splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark search facebook.jpg copacabana
+
+
+splashmark -w 1200 -c 630 -i "20 ways to prove\nthat you can do better" -e dark search .tmp/test.jpg machine
 #####################################################################
 ## Put your helper scripts here
 #####################################################################
@@ -168,11 +190,11 @@ download_image_from_unsplash() {
 download_image_from_url(){
   # $1 = url
   local uniq
-  local extension=".jpg"
-  [[ "$1" =~ .png ]] && extension=".png"
-  [[ "$1" =~ .gif ]] && extension=".gif"
+  local extension="jpg"
+  [[ "$1" =~ .png ]] && extension="png"
+  [[ "$1" =~ .gif ]] && extension="gif"
   uniq=$(echo "$1" | hash 8)
-  cached_image="$tmp_dir/image.$uniq$extension"
+  cached_image="$tmp_dir/image.$uniq.$extension"
   if [[ ! -f "$cached_image" ]] ; then
     log "IMG = [$1]"
     curl -s -o "$cached_image" "$1"
@@ -400,7 +422,7 @@ image_title() {
   *)
     shadow_color="FFF8" ;;
   esac
-  margin1=$((margin * 2))
+  margin1=$((margin * 3))
   margin2=$((margin1 + 1))
   if [[ -n "$title" ]] ; then
     text=$(text_resolve "$title")
@@ -453,8 +475,6 @@ hash() {
     md5 | cut -c1-"$length"
   fi
 }
-#TIP: use «hash» to create short unique values of fixed length based on longer inputs
-#TIP:> url_contents="$domain.$(echo $url | hash 8).html"
 
 script_modified="??"
 os_name=$(uname -s)
@@ -505,62 +525,50 @@ readonly nbcols=$(tput cols || echo 80)
 readonly wprogress=$((nbcols - 5))
 
 out() { ((quiet)) || printf '%b\n' "$*"; }
-#TIP: use «out» to show any kind of output, except when option --quiet is specified
-#TIP:> out "User is [$USER]"
 
 progress() {
   ((quiet)) || (
     ((piped)) && out "$*" || printf "... %-${wprogress}b\r" "$*                                             "
   )
 }
-#TIP: use «progress» to show one line of progress that will be overwritten by the next output
-#TIP:> progress "Now generating file $nb of $total ..."
 
-die() {
-  tput bel
-  out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2
-  safe_exit
-}
-fail() {
-  tput bel
-  out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2
-  safe_exit
-}
-#TIP: use «die» to show error message and exit program
-#TIP:> if [[ ! -f $output ]] ; then ; die "could not create output" ; fi
+die()     { tput bel; out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2; safe_exit; }
 
-alert() { out "${col_red}${char_alrt}${col_reset}: $*" >&2; } # print error and continue
-#TIP: use «alert» to show alert/warning message but continue
-#TIP:> if [[ ! -f $output ]] ; then ; alert "could not create output" ; fi
+fail()    { tput bel; out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2; safe_exit; }
 
-success() { out "${col_grn}${char_succ}${col_reset}  $*"; }
-#TIP: use «success» to show success message but continue
-#TIP:> if [[ -f $output ]] ; then ; success "output was created!" ; fi
+alert()   { out "${col_red}${char_alrt}${col_reset}: $*" >&2 ; }                       # print error and continue
 
-announce() {
-  out "${col_grn}${char_wait}${col_reset}  $*"
-  sleep 1
-}
-#TIP: use «announce» to show the start of a task
-#TIP:> announce "now generating the reports"
+success() { out "${col_grn}${char_succ}${col_reset}  $*" ; }
 
-log() { ((verbose)) && out "${col_ylw}# $* ${col_reset}" >&2; }
-#TIP: use «log» to show information that will only be visible when -v is specified
-#TIP:> log "input file: [$inputname] - [$inputsize] MB"
+announce(){ out "${col_grn}${char_wait}${col_reset}  $*"; sleep 1 ; }
+
+log()   { ((verbose)) && out "${col_ylw}# $* ${col_reset}" >&2 ; }
+
+log_to_file(){ echo "$(date '+%H:%M:%S') | $*" >> "$log_file" ; }
+
+lower_case()   { echo "$*" | awk '{print tolower($0)}' ; }
+upper_case()   { echo "$*" | awk '{print toupper($0)}' ; }
+
+slugify()     {
+    # shellcheck disable=SC2020
+  lower_case "$*" \
+  | tr \
+    'àáâäæãåāçćčèéêëēėęîïííīįìłñńôoöòóœøōõßśšûüùúūÿžźż' \
+    'aaaaaaaaccceeeeeeeiiiiiiilnnooooooooosssuuuuuyzzz' \
+  | awk '{
+    gsub(/[^0-9a-z ]/,"");
+    gsub(/^\s+/,"");
+    gsub(/^s+$/,"");
+    gsub(" ","-");
+    print;
+    }' \
+  | cut -c1-50
+  }
+
+confirm() { is_set $force && return 0; read -r -p "$1 [y/N] " -n 1; echo " "; [[ $REPLY =~ ^[Yy]$ ]];}
 
 lower_case() { echo "$*" | awk '{print tolower($0)}'; }
 upper_case() { echo "$*" | awk '{print toupper($0)}'; }
-#TIP: use «lower_case» and «upper_case» to convert to upper/lower case
-#TIP:> param=$(lower_case $param)
-
-confirm() {
-  is_set $force && return 0
-  read -r -p "$1 [y/N] " -n 1
-  echo " "
-  [[ $REPLY =~ ^[Yy]$ ]]
-}
-#TIP: use «confirm» for interactive confirmation before doing something
-#TIP:> if ! confirm "Delete file"; then ; echo "skip deletion" ;   fi
 
 ask() {
   # $1 = variable name
@@ -575,8 +583,6 @@ ask() {
     eval "$1=\"$ANSWER\""
   fi
 }
-#TIP: use «ask» for interactive setting of variables
-#TIP:> ask NAME "What is your name" "Peter"
 
 error_prefix="${col_red}>${col_reset}"
 trap "die \"ERROR \$? after \$SECONDS seconds \n\
@@ -595,13 +601,9 @@ safe_exit() {
 is_set() { [[ "$1" -gt 0 ]]; }
 is_empty() { [[ -z "$1" ]]; }
 is_not_empty() { [[ -n "$1" ]]; }
-#TIP: use «is_empty» and «is_not_empty» to test for variables
-#TIP:> if is_empty "$email" ; then ; echo "Need Email!" ; fi
 
 is_file() { [[ -f "$1" ]]; }
 is_dir() { [[ -d "$1" ]]; }
-#TIP: use «is_file» and «is_dir» to test for files or folders
-#TIP:> if is_file "/etc/hosts" ; then ; cat "/etc/hosts" ; fi
 
 show_usage() {
   out "Program: ${col_grn}$script_basename $script_version${col_reset} created on ${col_grn}$script_created${col_reset} by ${col_ylw}$script_author${col_reset}"
@@ -688,8 +690,6 @@ folder_prep() {
     fi
   fi
 }
-#TIP: use «folder_prep» to create a folder if needed and otherwise clean up old files
-#TIP:> folder_prep "$log_dir" 7 # delete all files olders than 7 days
 
 expects_single_params() {
   list_options | grep 'param|1|' >/dev/null
@@ -747,7 +747,7 @@ parse_options() {
     echo "### USAGE"
     show_usage
     echo ""
-    echo "### SCRIPT AUTHORING TIPS"
+    echo "### TIPS & EXAMPLES"
     show_tips
     safe_exit
   )
@@ -853,9 +853,6 @@ prep_log_and_temp_dir() {
 }
 
 import_env_if_any() {
-  #TIP: use «.env» file in script folder / current folder to set secrets or common config settings
-  #TIP:> AWS_SECRET_ACCESS_KEY="..."
-
   if [[ -f "$script_install_folder/.env" ]]; then
     log "Read config from [$script_install_folder/.env]"
     # shellcheck disable=SC1090
