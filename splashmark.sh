@@ -342,14 +342,6 @@ text_resolve() {
     | sed "s|{url}|$url|" \
     | sed "s|https://||"
     ;;
-  url)
-    echo "$1" \
-    | sed "s|{copyright}|Photo by {photographer}|" \
-    | sed "s|{copyright2}|© {photographer}|" \
-    | sed "s|{photographer}|$photographer|" \
-    | sed "s|{url}|$url|" \
-    | sed "s|https://||"
-    ;;
     *)
     echo "$1" \
     | sed "s|{copyright}| |" \
