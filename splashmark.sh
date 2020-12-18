@@ -124,8 +124,6 @@ main() {
 #TIP: to create a social image for Facebook
 #TIP:> splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark search facebook.jpg copacabana
 
-
-splashmark -w 1200 -c 630 -i "20 ways to prove\nthat you can do better" -e dark search .tmp/test.jpg machine
 #####################################################################
 ## Put your helper scripts here
 #####################################################################
