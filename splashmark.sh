@@ -333,21 +333,31 @@ image_modify() {
 }
 
 text_resolve() {
-  if [[ $image_source == "unsplash" ]] ; then
+  case $image_source in
+  unsplash)
     echo "$1" \
     | sed "s|{copyright}|Photo by {photographer} on Unsplash.com|" \
     | sed "s|{copyright2}|© {photographer} » Unsplash.com|" \
     | sed "s|{photographer}|$photographer|" \
     | sed "s|{url}|$url|" \
     | sed "s|https://||"
-  else
+    ;;
+  url)
     echo "$1" \
     | sed "s|{copyright}|Photo by {photographer}|" \
     | sed "s|{copyright2}|© {photographer}|" \
     | sed "s|{photographer}|$photographer|" \
     | sed "s|{url}|$url|" \
     | sed "s|https://||"
-  fi
+    ;;
+    *)
+    echo "$1" \
+    | sed "s|{copyright}| |" \
+    | sed "s|{copyright2}| |" \
+    | sed "s|{photographer}| |" \
+    | sed "s|{url}| |" \
+    | sed "s|https://||"
+  esac
 }
 
 image_effect(){
