@@ -31,6 +31,7 @@ option|r|fontcolor|font color to use|FFFFFF
 option|t|tmp_dir|folder for temp files|.tmp
 option|w|width|image width for resizing|1200
 option|x|photographer|photographer name (empty: get from Unsplash)|
+option|u|url|photo URL override (empty: get from Unsplash)|
 option|z|titlesize|font size for title|80
 param|1|action|action to perform: download/search/file/url
 param|1|output|output file
@@ -164,8 +165,8 @@ unsplash_api() {
 
 get_metadata_from_unsplash() {
   # only get metadata if it was not yet specified as an option
-  [[ -z "$photographer" ]]  && photographer=$(unsplash_api "/photos/$1" ".user.name")
-  [[ -z "$url" ]] && url=$(unsplash_api "/photos/$1" ".links.html")
+  [[ -z "${photographer:-}" ]]  && photographer=$(unsplash_api "/photos/$1" ".user.name")
+  [[ -z "${url:-}" ]] && url=$(unsplash_api "/photos/$1" ".links.html")
 }
 
 download_image_from_unsplash() {
@@ -857,10 +858,20 @@ import_env_if_any() {
     # shellcheck disable=SC1090
     source "$script_install_folder/.env"
   fi
+  if [[ -f "$script_install_folder/$script_prefix.env" ]] ; then
+    log "Read config from [$script_install_folder/$script_prefix.env]"
+    # shellcheck disable=SC1090
+    source "$script_install_folder/$script_prefix.env"
+  fi
   if [[ -f "./.env" ]]; then
     log "Read config from [./.env]"
-    # shellcheck disable=SC1091
+    # shellcheck disable=SC1090
     source "./.env"
+  fi
+  if [[ -f "./$script_prefix.env" ]]; then
+    log "Read config from [./$script_prefix.env]"
+    # shellcheck disable=SC1090
+    source "./$script_prefix.env"
   fi
 }
 
