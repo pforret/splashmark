@@ -865,7 +865,7 @@ import_env_if_any() {
   fi
   if [[ -f "./.env" ]]; then
     log "Read config from [./.env]"
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1091
     source "./.env"
   fi
   if [[ -f "./$script_prefix.env" ]]; then
