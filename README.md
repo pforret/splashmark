@@ -11,8 +11,7 @@
 ![splashmark logo](assets/splash.jpg)
 
 Download unsplash pics and
-* resize
-* crop
+* resize/crop
 * add visual FX (blur/monochrome/darken/median/grain...)
 * add attribution (by saving it as EXIF/IPTC meta data)
 * add watermarks (Unsplash URL or other)
