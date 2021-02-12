@@ -8,7 +8,7 @@
 
 # splashmark
 
-![splashmark logo](assets/splashmark.jpg)
+![splashmark logo](assets/splash.jpg)
 
 Download unsplash pics and
 * resize
