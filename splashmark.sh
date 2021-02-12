@@ -23,7 +23,7 @@ option|g|gravity|title alignment left/center/right|center
 option|i|title|big text to put in center|
 option|j|subtitlesize|font size for subtitle|50
 option|k|subtitle|big text to put in center|
-option|l|log_dir|folder for log files |log
+option|l|log_dir|folder for log files |$HOME/log/$script_prefix
 option|m|margin|margin for watermarks|30
 option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
@@ -172,7 +172,7 @@ get_metadata_from_unsplash() {
 download_image_from_unsplash() {
   # $1 = photo_id
   # returns path of downloaded file
-  photo_id=$(basename "$1")
+  photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
   image_url=$(unsplash_api "/photos/$photo_id" .urls.regular)
   cached_image="$tmp_dir/$photo_id.jpg"
   if [[ ! -f "$cached_image" ]]; then
