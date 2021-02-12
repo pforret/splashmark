@@ -23,7 +23,7 @@ option|g|gravity|title alignment left/center/right|center
 option|i|title|big text to put in center|
 option|j|subtitlesize|font size for subtitle|50
 option|k|subtitle|big text to put in center|
-option|l|log_dir|folder for log files |$HOME/log/$script_prefix
+option|l|log_dir|folder for debug files |$HOME/log/$script_prefix
 option|m|margin|margin for watermarks|30
 option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
@@ -33,10 +33,27 @@ option|w|width|image width for resizing|1200
 option|x|photographer|photographer name (empty: get from Unsplash)|
 option|u|url|photo URL override (empty: get from Unsplash)|
 option|z|titlesize|font size for title|80
+option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
 param|1|action|action to perform: download/search/file/url
-param|1|output|output file
-param|1|input|URL or search term
+param|?|output|output file
+param|?|input|URL or search term
 " | grep -v '^#'
+}
+
+list_dependencies() {
+  ### Change the next lines to reflect which binaries(programs) or scripts are necessary to run this script
+  # Example 1: a regular package that should be installed with apt/brew/yum/...
+  #curl
+  # Example 2: a program that should be installed with apt/brew/yum/... through a package with a different name
+  #convert|imagemagick
+  # Example 3: a package with its own package manager: basher (shell), go get (golang), cargo (Rust)...
+  #progressbar|basher install pforret/progressbar
+  echo -n "
+curl
+exiftool
+convert|imagemagick
+mogrify|imagemagick
+" | grep -v "^#" | grep -v '^\s*$'
 }
 
 #####################################################################
@@ -44,11 +61,8 @@ param|1|input|URL or search term
 #####################################################################
 
 main() {
-  log "Program: $script_basename $script_version"
-  log "Updated: $script_modified"
-  log "Run as : $USER@$HOSTNAME"
-  verify_programs awk basename cut date dirname find grep head mkdir sed stat tput uname wc exiftool convert mogrify
-  prep_log_and_temp_dir
+  require_binaries
+  log_to_file "[$script_basename] $script_version started"
 
   action=$(lower_case "$action")
   case $action in
@@ -64,7 +78,7 @@ main() {
     # shellcheck disable=SC2154
     photo_id=$(basename "$input")
     if [[ -n "$photo_id" ]]; then
-      log "Found photo ID = $photo_id"
+      debug "Found photo ID = $photo_id"
       image_file=$(download_image_from_unsplash "$photo_id")
       get_metadata_from_unsplash "$photo_id"
       # shellcheck disable=SC2154
@@ -83,7 +97,7 @@ main() {
     image_source="unsplash"
     photo_id=$(search_from_unsplash "$input")
     if [[ -n "$photo_id" ]]; then
-      log "Found photo ID = $photo_id"
+      debug "Found photo ID = $photo_id"
       image_file=$(download_image_from_unsplash "$photo_id")
       get_metadata_from_unsplash "$photo_id"
       image_modify "$image_file" "$output"
@@ -110,6 +124,15 @@ main() {
     [[ ! -f "$image_file" ]] && die "Cannot download input image [$input]"
     image_modify "$image_file" "$output"
     out "$output"
+    ;;
+
+  check|env)
+    ## leave this default action, it will make it easier to test your script
+    #TIP: use «$script_prefix check» to check if this script is ready to execute and what values the options/flags are
+    #TIP:> $script_prefix check
+    #TIP: use «$script_prefix env» to generate an example .env file
+    #TIP:> $script_prefix env > .env
+    check_script_settings
     ;;
 
   *)
@@ -148,15 +171,22 @@ unsplash_api() {
   local cached="$tmp_dir/unsplash.$uniq.json"
   if [[ ! -f "$cached" ]] ; then
     # only get the data once
-    log "API = [$show_url]"
+    debug "API = [$show_url]"
     curl -s "$full_url" > "$cached"
     if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
       # remove if response is too small to be a valid answer
       rm "$cached"
       alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
+      return 1
+    fi
+    if grep -q "Rate Limit Exceeded" "$cached" ; then
+      # remove if response is API throttling starts
+      rm "$cached"
+      alert "API call to [$1] was throttled - remember it's limited to 50 req/hr!"
+      return 2
     fi
   else
-    log "API = [$cached]"
+    debug "API = [$cached]"
   fi
   < "$cached" jq "${2:-.}" |
     sed 's/"//g' |
@@ -176,10 +206,10 @@ download_image_from_unsplash() {
   image_url=$(unsplash_api "/photos/$photo_id" .urls.regular)
   cached_image="$tmp_dir/$photo_id.jpg"
   if [[ ! -f "$cached_image" ]]; then
-    log "IMG = [$image_url]"
+    debug "IMG = [$image_url]"
     curl -s -o "$cached_image" "$image_url"
   else
-    log "IMG = [$cached_image]"
+    debug "IMG = [$cached_image]"
   fi
   [[ ! -f "$cached_image" ]] && die "download [$image_url] failed"
   echo "$cached_image"
@@ -194,10 +224,10 @@ download_image_from_url(){
   uniq=$(echo "$1" | hash 8)
   cached_image="$tmp_dir/image.$uniq.$extension"
   if [[ ! -f "$cached_image" ]] ; then
-    log "IMG = [$1]"
+    debug "IMG = [$1]"
     curl -s -o "$cached_image" "$1"
   else
-    log "IMG = [$cached_image]"
+    debug "IMG = [$cached_image]"
   fi
   echo "$cached_image"
 }
@@ -210,10 +240,10 @@ search_from_unsplash() {
     unsplash_api "/search/photos/?query=$1" ".results[0].id"
   else
     choose_from=$(unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
-    log "PICK: $choose_from results in query"
+    debug "PICK: $choose_from results in query"
     [[ $choose_from -gt $randomize ]] && choose_from=$randomize
     chosen=$((RANDOM % choose_from))
-    log "PICK: photo $chosen from first $choose_from results"
+    debug "PICK: photo $chosen from first $choose_from results"
     unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
   fi
 }
@@ -224,7 +254,7 @@ set_exif() {
   exif_val="$3"
 
   if [[ -n "$exif_val" ]]; then
-    log "EXIF: set [$exif_key] to [$exif_val] for [$filename]"
+    debug "EXIF: set [$exif_key] to [$exif_val] for [$filename]"
     exiftool -overwrite_original -"$exif_key"="$exif_val" "$filename" >/dev/null 2>/dev/null
   fi
 }
@@ -259,7 +289,7 @@ set_metadata_tags() {
   #  Supplemental Categories         : OtherCategories
   #  Urgency                         : 1 (most urgent)
   #  Writer-Editor                   : Caption Writer
-  set_exif "$2" "Writer-Editor" "$script_basename"
+  set_exif "$2" "Writer-Editor" "https://github.com/pforret/splashmark"
   if [[ "$1" == "unsplash" ]] ; then
     ## metadata comes from Unsplash
     if [[ -f "$2" && -n ${photographer} ]]; then
@@ -291,23 +321,24 @@ image_modify() {
     convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' > "$font_list"
   fi
   if [[ -f "$fonttype" ]] ; then
-    log "FONT [$fonttype] exists as a font file"
+    debug "FONT [$fonttype] exists as a font file"
   elif grep -q "$fonttype" "$font_list" ; then
-    log "FONT [$fonttype] exists as a standard font"
+    debug "FONT [$fonttype] exists as a standard font"
   elif [[ -f "$script_install_folder/fonts/$fonttype" ]] ; then
     fonttype="$script_install_folder/fonts/$fonttype"
-    log "FONT [$fonttype] exists as a splashmark font"
+    debug "FONT [$fonttype] exists as a splashmark font"
   else
     die "FONT [$fonttype] cannot be found on this system"
   fi
+  [[ ! -f "$1" ]] && return 1
 
   ## scale and crop
   # shellcheck disable=SC2154
   if [[ $crop -gt 0 ]]; then
-    log "CROP: image to $width x $crop --> $2"
+    debug "CROP: image to $width x $crop --> $2"
     convert "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
   else
-    log "SIZE: to $width wide --> $2"
+    debug "SIZE: to $width wide --> $2"
     convert "$1" -gravity Center -resize "${width}"x -quality 95%  "$2"
   fi
   ## set EXIF/IPTC tags
@@ -357,8 +388,10 @@ image_effect(){
   # $1 = image path
   # $2 = effect name
   # shellcheck disable=SC2154
+  [[ ! -f "$1" ]] && return 1
+
   for fx1 in $(echo "$effect" | tr ',' "\n") ; do
-    log "EFX : $fx1"
+    debug "EFX : $fx1"
     case "$fx1" in
     blur)             mogrify -blur 5x5 "$1"  ;;
     dark|darken)      mogrify -fill black -colorize 25% "$1" ;;
@@ -382,6 +415,7 @@ image_watermark() {
   # $2 = gravity
   # $3 = text
 
+  [[ ! -f "$1" ]] && return 1
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
@@ -392,7 +426,7 @@ image_watermark() {
   esac
   text=$(text_resolve "$3")
 
-  log "MARK: [$text] in $2 corner ..."
+  debug "MARK: [$text] in $2 corner ..."
   # shellcheck disable=SC2154
   margin2=$((margin + 1))
   # shellcheck disable=SC2154
@@ -414,6 +448,7 @@ choose_position(){
 image_title() {
   # $1 = image path
 
+  [[ ! -f "$1" ]] && return 1
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
@@ -429,7 +464,7 @@ image_title() {
     position=""
     [[ -n "$subtitle" ]] && position="North"
     position=$(choose_position "$position")
-    log "MARK: title [$text] in $position ..."
+    debug "MARK: title [$text] in $position ..."
     # shellcheck disable=SC2154
     if [[ $(lower_case "$gravity") == "center" ]] ; then
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
@@ -444,7 +479,7 @@ image_title() {
     position=""
     [[ -n "$title" ]] && position="South"
     position=$(choose_position "$position")
-    log "MARK: subtitle [$text] in $position ..."
+    debug "MARK: subtitle [$text] in $position ..."
     # shellcheck disable=SC2154
     if [[ $(lower_case "$gravity") == "center" ]] ; then
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
@@ -476,17 +511,8 @@ hash() {
   fi
 }
 
-script_modified="??"
-os_name=$(uname -s)
-[[ "$os_name" == "Linux" ]] && script_modified=$(stat -c %y "${BASH_SOURCE[0]}" 2>/dev/null | cut -c1-16) # generic linux
-[[ "$os_name" == "Darwin" ]] && script_modified=$(stat -f "%Sm" "${BASH_SOURCE[0]}" 2>/dev/null)          # for MacOS
-
 force=0
 help=0
-
-## ----------- TERMINAL OUTPUT STUFF
-
-[[ -t 1 ]] && piped=0 || piped=1 # detect if out put is piped
 verbose=0
 #to enable verbose even before option parsing
 [[ $# -gt 0 ]] && [[ $1 == "-v" ]] && verbose=1
@@ -494,35 +520,48 @@ quiet=0
 #to enable quiet even before option parsing
 [[ $# -gt 0 ]] && [[ $1 == "-q" ]] && quiet=1
 
-[[ $(echo -e '\xe2\x82\xac') == '€' ]] && unicode=1 || unicode=0 # detect if unicode is supported
+## ----------- TERMINAL OUTPUT STUFF
 
-if [[ $piped -eq 0 ]]; then
-  col_reset="\033[0m"
-  col_red="\033[1;31m"
-  col_grn="\033[1;32m"
-  col_ylw="\033[1;33m"
-else
-  col_reset=""
-  col_red=""
-  col_grn=""
-  col_ylw=""
-fi
+initialise_output() {
+  [[ "${BASH_SOURCE[0]:-}" != "${0}" ]] && sourced=1 || sourced=0
+  [[ -t 1 ]] && piped=0 || piped=1 # detect if output is piped
+  if [[ $piped -eq 0 ]]; then
+    col_reset="\033[0m"
+    col_red="\033[1;31m"
+    col_grn="\033[1;32m"
+    col_ylw="\033[1;33m"
+  else
+    col_reset=""
+    col_red=""
+    col_grn=""
+    col_ylw=""
+  fi
 
-if [[ $unicode -gt 0 ]]; then
-  char_succ="✔"
-  char_fail="✖"
-  char_alrt="➨"
-  char_wait="…"
-else
-  char_succ="OK "
-  char_fail="!! "
-  char_alrt="?? "
-  char_wait="..."
-fi
+  [[ $(echo -e '\xe2\x82\xac') == '€' ]] && unicode=1 || unicode=0 # detect if unicode is supported
+  if [[ $unicode -gt 0 ]]; then
+    char_succ="✔"
+    char_fail="✖"
+    char_alrt="➨"
+    char_wait="…"
+    info_icon="🔎"
+    config_icon="🖌️"
+    clean_icon="🧹"
+    require_icon="📎"
+  else
+    char_succ="OK "
+    char_fail="!! "
+    char_alrt="?? "
+    char_wait="..."
+    info_icon="(i)"
+    config_icon="[c]"
+    clean_icon="[c]"
+    require_icon="[r]"
+  fi
+  error_prefix="${col_red}>${col_reset}"
 
-readonly nbcols=$(tput cols || echo 80)
-#readonly nbrows=$(tput lines)
-readonly wprogress=$((nbcols - 5))
+  readonly nbcols=$(tput cols 2>/dev/null || echo 80)
+  readonly wprogress=$((nbcols - 5))
+}
 
 out() { ((quiet)) || printf '%b\n' "$*"; }
 
@@ -542,9 +581,9 @@ success() { out "${col_grn}${char_succ}${col_reset}  $*" ; }
 
 announce(){ out "${col_grn}${char_wait}${col_reset}  $*"; sleep 1 ; }
 
-log()   { ((verbose)) && out "${col_ylw}# $* ${col_reset}" >&2 ; }
+debug()   { ((verbose)) && out "${col_ylw}# $* ${col_reset}" >&2 ; }
 
-log_to_file(){ echo "$(date '+%H:%M:%S') | $*" >> "$log_file" ; }
+log_to_file() { [[ -n ${log_file:-} ]] && echo "$(date '+%H:%M:%S') | $*" >>"$log_file"; }
 
 lower_case()   { echo "$*" | awk '{print tolower($0)}' ; }
 upper_case()   { echo "$*" | awk '{print toupper($0)}' ; }
@@ -584,7 +623,6 @@ ask() {
   fi
 }
 
-error_prefix="${col_red}>${col_reset}"
 trap "die \"ERROR \$? after \$SECONDS seconds \n\
 \${error_prefix} last command : '\$BASH_COMMAND' \" \
 \$(< \$script_install_path awk -v lineno=\$LINENO \
@@ -594,7 +632,7 @@ trap "die \"ERROR \$? after \$SECONDS seconds \n\
 safe_exit() {
   [[ -n "${tmp_file:-}" ]] && [[ -f "$tmp_file" ]] && rm "$tmp_file"
   trap - INT TERM EXIT
-  log "$script_basename finished after $SECONDS seconds"
+  debug "$script_basename finished after $SECONDS seconds"
   exit 0
 }
 
@@ -647,34 +685,123 @@ show_tips() {
   "
 }
 
+check_script_settings() {
+    ## leave this default action, it will make it easier to test your script
+  if ((piped)); then
+    debug "Skip dependencies for .env files"
+  else
+    out "## ${col_grn}dependencies${col_reset}: "
+    out "$(list_dependencies | cut -d'|' -f1 | sort | xargs)"
+    out " "
+  fi
+
+  if [[ -n $(filter_option_type flag) ]]; then
+    out "## ${col_grn}boolean flags${col_reset}:"
+    filter_option_type flag |
+      while read -r name; do
+        if ((piped)); then
+          eval "echo \"$name=\$${name:-}\""
+        else
+          eval "echo -n \"$name=\$${name:-}  \""
+        fi
+      done
+    out " "
+    out " "
+  fi
+
+  if [[ -n $(filter_option_type option) ]]; then
+    out "## ${col_grn}option defaults${col_reset}:"
+    filter_option_type option |
+      while read -r name; do
+        if ((piped)); then
+          eval "echo \"$name=\$${name:-}\""
+        else
+          eval "echo -n \"$name=\$${name:-}  \""
+        fi
+      done
+    out " "
+    out " "
+  fi
+
+  if [[ -n $(filter_option_type list) ]]; then
+    out "## ${col_grn}list options${col_reset}:"
+    filter_option_type list |
+      while read -r name; do
+        if ((piped)); then
+          eval "echo \"$name=(\${${name}[@]})\""
+        else
+          eval "echo -n \"$name=(\${${name}[@]})  \""
+        fi
+      done
+    out " "
+    out " "
+  fi
+
+  if [[ -n $(filter_option_type param) ]]; then
+    if ((piped)); then
+      debug "Skip parameters for .env files"
+    else
+      out "## ${col_grn}parameters${col_reset}:"
+      filter_option_type param |
+        while read -r name; do
+          # shellcheck disable=SC2015
+          ((piped)) && eval "echo \"$name=\\\"\${$name:-}\\\"\"" || eval "echo -n \"$name=\\\"\${$name:-}\\\"  \""
+        done
+      echo " "
+    fi
+  fi
+}
+
+filter_option_type() {
+  list_options | grep "$1|" | cut -d'|' -f3 | sort | grep -v '^\s*$'
+}
+
 init_options() {
   local init_command
   init_command=$(list_options |
+    grep -v "verbose|" |
     awk '
     BEGIN { FS="|"; OFS=" ";}
     $1 ~ /flag/   && $5 == "" {print $3 "=0; "}
     $1 ~ /flag/   && $5 != "" {print $3 "=\"" $5 "\"; "}
     $1 ~ /option/ && $5 == "" {print $3 "=\"\"; "}
     $1 ~ /option/ && $5 != "" {print $3 "=\"" $5 "\"; "}
+    $1 ~ /list/ {print $3 "=(); "}
+    $1 ~ /secret/ {print $3 "=\"\"; "}
     ')
   if [[ -n "$init_command" ]]; then
-    log "init_options: options/flags initialised"
     eval "$init_command"
   fi
 }
 
-verify_programs() {
-  os_name=$(uname -s)
-  os_version=$(uname -v)
-  log "Running: on $os_name ($os_version)"
-  list_programs=$(echo "$*" | sort -u | tr "\n" " ")
-  log "Verify : $list_programs"
-  for prog in "$@"; do
+require_binaries() {
+  local required_binary
+  local install_instructions
+
+  while read -r line; do
+    required_binary=$(echo "$line" | cut -d'|' -f1)
+    [[ -z "$required_binary" ]] && continue
     # shellcheck disable=SC2230
-    if [[ -z $(which "$prog") ]]; then
-      die "$script_basename needs [$prog] but this program cannot be found on this [$os_name] machine"
+    path_binary=$(which "$required_binary" 2>/dev/null)
+    [[ -n "$path_binary" ]] && debug "️$require_icon required [$required_binary] -> $path_binary"
+    [[ -n "$path_binary" ]] && continue
+    required_package=$(echo "$line" | cut -d'|' -f2)
+    if [[ $(echo "$required_package" | wc -w) -gt 1 ]]; then
+      # example: setver|basher install setver
+      install_instructions="$required_package"
+    else
+      [[ -z "$required_package" ]] && required_package="$required_binary"
+      if [[ -n "$install_package" ]]; then
+        install_instructions="$install_package $required_package"
+      else
+        install_instructions="(install $required_package with your package manager)"
+      fi
     fi
-  done
+    alert "$script_basename needs [$required_binary] but it cannot be found"
+    alert "1) install package  : $install_instructions"
+    alert "2) check path       : export PATH=\"[path of your binary]:\$PATH\""
+    die "Missing program/script [$required_binary]"
+  done < <(list_dependencies)
 }
 
 folder_prep() {
@@ -682,21 +809,18 @@ folder_prep() {
     local folder="$1"
     local max_days=${2:-365}
     if [[ ! -d "$folder" ]]; then
-      log "Create folder : [$folder]"
+      debug "Create folder : [$folder]"
       mkdir "$folder"
     else
-      log "Cleanup folder: [$folder] - delete files older than $max_days day(s)"
+      debug "Cleanup folder: [$folder] - delete files older than $max_days day(s)"
       find "$folder" -mtime "+$max_days" -type f -exec rm {} \;
     fi
   fi
 }
 
-expects_single_params() {
-  list_options | grep 'param|1|' >/dev/null
-}
-expects_multi_param() {
-  list_options | grep 'param|n|' >/dev/null
-}
+expects_single_params() { list_options | grep 'param|1|' >/dev/null; }
+expects_optional_params() { list_options | grep 'param|?|' >/dev/null; }
+expects_multi_param() { list_options | grep 'param|n|' >/dev/null; }
 
 parse_options() {
   if [[ $# -eq 0 ]]; then
@@ -705,9 +829,8 @@ parse_options() {
   fi
 
   ## first process all the -x --xxxx flags and options
-  #set -x
   while true; do
-    # flag <flag> is savec as $flag = 0/1
+    # flag <flag> is saved as $flag = 0/1
     # option <option> is saved as $option
     if [[ $# -eq 0 ]]; then
       ## all parameters processed
@@ -725,16 +848,18 @@ parse_options() {
         $1 ~ /flag/   && "--"$3 == opt {print $3"=1"}
         $1 ~ /option/ &&  "-"$2 == opt {print $3"=$2; shift"}
         $1 ~ /option/ && "--"$3 == opt {print $3"=$2; shift"}
-        $1 ~ /secret/ &&  "-"$2 == opt {print $3"=$2; shift"}
-        $1 ~ /secret/ && "--"$3 == opt {print $3"=$2; shift"}
+        $1 ~ /list/ &&  "-"$2 == opt {print $3"+=($2); shift"}
+        $1 ~ /list/ && "--"$3 == opt {print $3"=($2); shift"}
+        $1 ~ /secret/ &&  "-"$2 == opt {print $3"=$2; shift #noshow"}
+        $1 ~ /secret/ && "--"$3 == opt {print $3"=$2; shift #noshow"}
         ')
     if [[ -n "$save_option" ]]; then
       if echo "$save_option" | grep shift >>/dev/null; then
         local save_var
         save_var=$(echo "$save_option" | cut -d= -f1)
-        log "Found  : ${save_var}=$2"
+        debug "$config_icon parameter: ${save_var}=$2"
       else
-        log "Found  : $save_option"
+        debug "$config_icon flag: $save_option"
       fi
       eval "$save_option"
     else
@@ -744,45 +869,61 @@ parse_options() {
   done
 
   ((help)) && (
-    echo "### USAGE"
     show_usage
-    echo ""
+    check_last_version
+    out "                                  "
     echo "### TIPS & EXAMPLES"
     show_tips
-    safe_exit
-  )
+
+  ) && safe_exit
 
   ## then run through the given parameters
   if expects_single_params; then
     single_params=$(list_options | grep 'param|1|' | cut -d'|' -f3)
     list_singles=$(echo "$single_params" | xargs)
-    single_count=$(echo "$single_params" | wc -w)
-    log "Expect : $single_count single parameter(s): $list_singles"
+    single_count=$(echo "$single_params" | count_words)
+    debug "$config_icon Expect : $single_count single parameter(s): $list_singles"
     [[ $# -eq 0 ]] && die "need the parameter(s) [$list_singles]"
 
     for param in $single_params; do
       [[ $# -eq 0 ]] && die "need parameter [$param]"
       [[ -z "$1" ]] && die "need parameter [$param]"
-      log "Found  : $param=$1"
+      debug "$config_icon Assign : $param=$1"
       eval "$param=\"$1\""
       shift
     done
   else
-    log "No single params to process"
+    debug "$config_icon No single params to process"
     single_params=""
     single_count=0
   fi
 
+  if expects_optional_params; then
+    optional_params=$(list_options | grep 'param|?|' | cut -d'|' -f3)
+    optional_count=$(echo "$optional_params" | count_words)
+    debug "$config_icon Expect : $optional_count optional parameter(s): $(echo "$optional_params" | xargs)"
+
+    for param in $optional_params; do
+      debug "$config_icon Assign : $param=${1:-}"
+      eval "$param=\"${1:-}\""
+      shift
+    done
+  else
+    debug "$config_icon No optional params to process"
+    optional_params=""
+    optional_count=0
+  fi
+
   if expects_multi_param; then
-    #log "Process: multi param"
+    #debug "Process: multi param"
     multi_count=$(list_options | grep -c 'param|n|')
     multi_param=$(list_options | grep 'param|n|' | cut -d'|' -f3)
-    log "Expect : $multi_count multi parameter: $multi_param"
+    debug "$config_icon Expect : $multi_count multi parameter: $multi_param"
     ((multi_count > 1)) && die "cannot have >1 'multi' parameter: [$multi_param]"
     ((multi_count > 0)) && [[ $# -eq 0 ]] && die "need the (multi) parameter [$multi_param]"
     # save the rest of the params in the multi param
     if [[ -n "$*" ]]; then
-      log "Found  : $multi_param=$*"
+      debug "$config_icon Assign : $multi_param=$*"
       eval "$multi_param=( $* )"
     fi
   else
@@ -792,105 +933,157 @@ parse_options() {
   fi
 }
 
+count_words() { wc -w | awk '{ gsub(/ /,""); print}'; }
+
+recursive_readlink() {
+  [[ ! -L "$1" ]] && echo "$1" && return 0
+  local file_folder
+  local link_folder
+  local link_name
+  file_folder="$(dirname "$1")"
+  # resolve relative to absolute path
+  [[ "$file_folder" != /* ]] && link_folder="$(cd -P "$file_folder" &>/dev/null && pwd)"
+  local symlink
+  symlink=$(readlink "$1")
+  link_folder=$(dirname "$symlink")
+  link_name=$(basename "$symlink")
+  [[ -z "$link_folder" ]] && link_folder="$file_folder"
+  [[ "$link_folder" == \.* ]] && link_folder="$(cd -P "$file_folder" && cd -P "$link_folder" &>/dev/null && pwd)"
+  debug "$info_icon Symbolic ln: $1 -> [$symlink]"
+  recursive_readlink "$link_folder/$link_name"
+}
+
 lookup_script_data() {
   readonly script_prefix=$(basename "${BASH_SOURCE[0]}" .sh)
   readonly script_basename=$(basename "${BASH_SOURCE[0]}")
-  # shellcheck disable=SC2034
   readonly execution_day=$(date "+%Y-%m-%d")
-  # shellcheck disable=SC2034
-  readonly execution_year=$(date "+%Y")
+  #readonly execution_year=$(date "+%Y")
 
-  if [[ -z $(dirname "${BASH_SOURCE[0]}") ]]; then
-    # script called without path ; must be in $PATH somewhere
-    # shellcheck disable=SC2230
-    script_install_path=$(which "${BASH_SOURCE[0]}")
-    if [[ -n $(readlink "$script_install_path") ]]; then
-      # when script was installed with e.g. basher
-      script_install_path=$(readlink "$script_install_path")
-    fi
-    script_install_folder=$(dirname "$script_install_path")
+  script_install_path="${BASH_SOURCE[0]}"
+  debug "$info_icon Script path: $script_install_path"
+  script_install_path=$(recursive_readlink "$script_install_path")
+  debug "$info_icon Actual path: $script_install_path"
+  readonly script_install_folder="$(dirname "$script_install_path")"
+  if [[ -f "$script_install_path" ]]; then
+    script_hash=$(hash <"$script_install_path" 8)
+    script_lines=$(awk <"$script_install_path" 'END {print NR}')
   else
-    # script called with relative/absolute path
-    script_install_folder=$(dirname "${BASH_SOURCE[0]}")
-    # resolve to absolute path
-    script_install_folder=$(cd "$script_install_folder" && pwd)
-    if [[ -n "$script_install_folder" ]]; then
-      script_install_path="$script_install_folder/$script_basename"
-    else
-      script_install_path="${BASH_SOURCE[0]}"
-      script_install_folder=$(dirname "${BASH_SOURCE[0]}")
-    fi
-    if [[ -n $(readlink "$script_install_path") ]]; then
-      # when script was installed with e.g. basher
-      script_install_path=$(readlink "$script_install_path")
-      script_install_folder=$(dirname "$script_install_path")
-    fi
+    # can happen when script is sourced by e.g. bash_unit
+    script_hash="?"
+    script_lines="?"
   fi
-  log "Executable: [$script_install_path]"
-  log "In folder : [$script_install_folder]"
 
+  # get shell/operating system/versions
+  shell_brand="sh"
+  shell_version="?"
+  [[ -n "${ZSH_VERSION:-}" ]] && shell_brand="zsh" && shell_version="$ZSH_VERSION"
+  [[ -n "${BASH_VERSION:-}" ]] && shell_brand="bash" && shell_version="$BASH_VERSION"
+  [[ -n "${FISH_VERSION:-}" ]] && shell_brand="fish" && shell_version="$FISH_VERSION"
+  [[ -n "${KSH_VERSION:-}" ]] && shell_brand="ksh" && shell_version="$KSH_VERSION"
+  debug "$info_icon Shell type : $shell_brand - version $shell_version"
+
+  readonly os_kernel=$(uname -s)
+  os_version=$(uname -r)
+  os_machine=$(uname -m)
+  install_package=""
+  case "$os_kernel" in
+  CYGWIN* | MSYS* | MINGW*)
+    os_name="Windows"
+    ;;
+  Darwin)
+    os_name=$(sw_vers -productName)       # macOS
+    os_version=$(sw_vers -productVersion) # 11.1
+    install_package="brew install"
+    ;;
+  Linux | GNU*)
+    if [[ $(which lsb_release) ]]; then
+      # 'normal' Linux distributions
+      os_name=$(lsb_release -i)    # Ubuntu
+      os_version=$(lsb_release -r) # 20.04
+    else
+      # Synology, QNAP,
+      os_name="Linux"
+    fi
+    [[ -x /bin/apt-cyg ]] && install_package="apt-cyg install"     # Cygwin
+    [[ -x /bin/dpkg ]] && install_package="dpkg -i"                # Synology
+    [[ -x /opt/bin/ipkg ]] && install_package="ipkg install"       # Synology
+    [[ -x /usr/sbin/pkg ]] && install_package="pkg install"        # BSD
+    [[ -x /usr/bin/pacman ]] && install_package="pacman -S"        # Arch Linux
+    [[ -x /usr/bin/zypper ]] && install_package="zypper install"   # Suse Linux
+    [[ -x /usr/bin/emerge ]] && install_package="emerge"           # Gentoo
+    [[ -x /usr/bin/yum ]] && install_package="yum install"         # RedHat RHEL/CentOS/Fedora
+    [[ -x /usr/bin/apk ]] && install_package="apk add"             # Alpine
+    [[ -x /usr/bin/apt-get ]] && install_package="apt-get install" # Debian
+    [[ -x /usr/bin/apt ]] && install_package="apt install"         # Ubuntu
+    ;;
+
+  esac
+  debug "$info_icon System OS  : $os_name ($os_kernel) $os_version on $os_machine"
+  debug "$info_icon Package mgt: $install_package"
+
+  # get last modified date of this script
+  script_modified="??"
+  [[ "$os_kernel" == "Linux" ]] && script_modified=$(stat -c %y "$script_install_path" 2>/dev/null | cut -c1-16) # generic linux
+  [[ "$os_kernel" == "Darwin" ]] && script_modified=$(stat -f "%Sm" "$script_install_path" 2>/dev/null)          # for MacOS
+
+  debug "$info_icon Last modif : $script_modified"
+  debug "$info_icon Script ID  : $script_lines lines / md5: $script_hash"
+  debug "$info_icon Creation   : $script_created"
+  debug "$info_icon Running as : $USER@$HOSTNAME"
+
+  # if run inside a git repo, detect for which remote repo it is
+  if git status &>/dev/null; then
+    readonly git_repo_remote=$(git remote -v | awk '/(fetch)/ {print $2}')
+    debug "$info_icon git remote : $git_repo_remote"
+    readonly git_repo_root=$(git rev-parse --show-toplevel)
+    debug "$info_icon git folder : $git_repo_root"
+  else
+    readonly git_repo_root=""
+    readonly git_repo_remote=""
+  fi
+
+  # get script version from VERSION.md file - which is automatically updated by pforret/setver
   [[ -f "$script_install_folder/VERSION.md" ]] && script_version=$(cat "$script_install_folder/VERSION.md")
+  # get script version from git tag file - which is automatically updated by pforret/setver
+  [[ -n "$git_repo_root" ]] && [[ -n "$(git tag &>/dev/null)" ]] && script_version=$(git tag --sort=version:refname | tail -1)
 }
 
 prep_log_and_temp_dir() {
   tmp_file=""
   log_file=""
-  # shellcheck disable=SC2154
-  if is_not_empty "$tmp_dir"; then
+  if [[ -n "${tmp_dir:-}" ]]; then
     folder_prep "$tmp_dir" 1
     tmp_file=$(mktemp "$tmp_dir/$execution_day.XXXXXX")
-    log "tmp_file: $tmp_file"
-    # you can use this teporary file in your program
+    debug "$config_icon tmp_file: $tmp_file"
+    # you can use this temporary file in your program
     # it will be deleted automatically if the program ends without problems
   fi
-  # shellcheck disable=SC2154
-  if [[ -n "$log_dir" ]]; then
-    folder_prep "$log_dir" 7
-    log_file=$log_dir/$script_prefix.$execution_day.log
-    log "log_file: $log_file"
-    echo "$(date '+%H:%M:%S') | [$script_basename] $script_version started" >>"$log_file"
+  if [[ -n "${log_dir:-}" ]]; then
+    folder_prep "$log_dir" 30
+    log_file="$log_dir/$script_prefix.$execution_day.log"
+    debug "$config_icon log_file: $log_file"
   fi
 }
 
 import_env_if_any() {
-  if [[ -f "$script_install_folder/.env" ]]; then
-    log "Read config from [$script_install_folder/.env]"
-    # shellcheck disable=SC1090
-    source "$script_install_folder/.env"
-  fi
-  if [[ -f "$script_install_folder/$script_prefix.env" ]] ; then
-    log "Read config from [$script_install_folder/$script_prefix.env]"
-    # shellcheck disable=SC1090
-    source "$script_install_folder/$script_prefix.env"
-  fi
-  if [[ -f "./.env" ]]; then
-    log "Read config from [./.env]"
-    # shellcheck disable=SC1091
-    source "./.env"
-  fi
-  if [[ -f "./$script_prefix.env" ]]; then
-    log "Read config from [./$script_prefix.env]"
-    # shellcheck disable=SC1090
-    source "./$script_prefix.env"
-  fi
+  env_files=("$script_install_folder/.env" "$script_install_folder/$script_prefix.env" "./.env" "./$script_prefix.env")
+
+  for env_file in "${env_files[@]}"; do
+    if [[ -f "$env_file" ]]; then
+      debug "$config_icon Read config from [$env_file]"
+      # shellcheck disable=SC1090
+      source "$env_file"
+    fi
+  done
 }
 
 [[ $run_as_root == 1 ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
 [[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && die "user is $USER, CANNOT be root to run [$script_basename]"
 
-lookup_script_data
-
-# set default values for flags & options
+initialise_output  # output settings
+lookup_script_data # set default values for flags & options
 init_options
-
-# overwrite with .env if any
-import_env_if_any
-
-# overwrite with specified options if any
-parse_options "$@"
-
-# run main program
-main
-
-# exit and clean up
-safe_exit
+import_env_if_any # overwrite with .env if any
+parse_options "$@" # overwrite with specified options if any
+main  # run main program
+safe_exit # exit and clean up
