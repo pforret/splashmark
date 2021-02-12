@@ -14,7 +14,7 @@ flag|q|quiet|no output
 flag|v|verbose|output more
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
-option|3|southwest|text to put in left bottom|
+option|3|southwest|text to put in left bottom|Created with pforret/splashmark
 option|4|southeast|text to put in right bottom|{copyright2}
 option|c|crop|image height for cropping|0
 option|d|randomize|take a random picture in the first N results|1
@@ -24,7 +24,7 @@ option|i|title|big text to put in center|
 option|j|subtitlesize|font size for subtitle|50
 option|k|subtitle|big text to put in center|
 option|l|log_dir|folder for log files |log
-option|m|margin|margin for watermarks|15
+option|m|margin|margin for watermarks|30
 option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
