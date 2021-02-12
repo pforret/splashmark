@@ -4,3 +4,4 @@ log/*
 .env
 .idea
 .DS_Store
+examples/*/*.jpg
