@@ -10,6 +10,12 @@ countries_file="countries.txt"
     slug=$(echo "$country" | sed 's/[^a-zA-Z]//g')
     search=$(echo "$country" | sed 's/ /+/g')
     title=$(echo "$country" | tr ' ' "\n")
-    [[ ! -f ${slug}_ig.jpg ]] && echo "### $country ..."  && ../../splashmark -w 800 -c 800 -z 160 -i "$title" -r "FFFFFFCC" -e dark search ${slug}_ig.jpg "$search" && sleep 60
-    #[[ ! -f ${slug}_fb.jpg ]] && splashmark -w 1200 -c 630 -i "$country" search ${slug}_fb.jpg "$search" && sleep 10
+    if [[ ! -f ${slug}_ig.jpg ]] ; then
+      splashmark -q -w 800 -c 800 -z 160 -i "$title" -r "FFFFFFCC" -e dark search ${slug}_ig.jpg "$search"
+    fi
+    if [[ -f ${slug}_ig.jpg ]] ; then
+      echo "## $country"
+      echo "![$country](${slug}_ig.jpg)"
+    fi
+
   done
