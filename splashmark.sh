@@ -1085,5 +1085,6 @@ lookup_script_data # set default values for flags & options
 init_options
 import_env_if_any # overwrite with .env if any
 parse_options "$@" # overwrite with specified options if any
+prep_log_and_temp_dir
 main  # run main program
 safe_exit # exit and clean up
