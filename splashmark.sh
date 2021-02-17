@@ -1077,14 +1077,19 @@ import_env_if_any() {
   done
 }
 
-[[ $run_as_root == 1 ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
+[[ $run_as_root == 1 ]]  && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
 [[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && die "user is $USER, CANNOT be root to run [$script_basename]"
 
 initialise_output  # output settings
 lookup_script_data # set default values for flags & options
 init_options
 import_env_if_any # overwrite with .env if any
-parse_options "$@" # overwrite with specified options if any
-prep_log_and_temp_dir
-main  # run main program
-safe_exit # exit and clean up
+if [[ $sourced -eq 0 ]]; then
+  parse_options "$@"    # overwrite with specified options if any
+  prep_log_and_temp_dir # clean up debug and temp folder
+  main                  # run main program
+  safe_exit             # exit and clean up
+else
+  # just disable the trap, don't execute main
+  trap - INT TERM EXIT
+fi
