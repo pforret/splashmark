@@ -12,27 +12,27 @@ list_options() {
 flag|h|help|show usage
 flag|q|quiet|no output
 flag|v|verbose|output more
+option|l|log_dir|folder for log files |$HOME/log/$script_prefix
+option|t|tmp_dir|folder for temp files|/tmp/$script_prefix
+option|w|width|image width for resizing|1200
+option|c|crop|image height for cropping|0
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|Created with pforret/splashmark
 option|4|southeast|text to put in right bottom|{copyright2}
-option|c|crop|image height for cropping|0
 option|d|randomize|take a random picture in the first N results|1
 option|e|effect|use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|g|gravity|title alignment left/center/right|center
 option|i|title|big text to put in center|
-option|j|subtitlesize|font size for subtitle|50
+option|z|titlesize|font size for title|80
 option|k|subtitle|big text to put in center|
-option|l|log_dir|folder for debug files |$HOME/log/$script_prefix
+option|j|subtitlesize|font size for subtitle|50
 option|m|margin|margin for watermarks|30
 option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
-option|t|tmp_dir|folder for temp files|.tmp
-option|w|width|image width for resizing|1200
 option|x|photographer|photographer name (empty: get from Unsplash)|
 option|u|url|photo URL override (empty: get from Unsplash)|
-option|z|titlesize|font size for title|80
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
 param|1|action|action to perform: download/search/file/url
 param|?|output|output file
@@ -524,6 +524,7 @@ quiet=0
 
 initialise_output() {
   [[ "${BASH_SOURCE[0]:-}" != "${0}" ]] && sourced=1 || sourced=0
+  ((sourced)) && debug "$info_icon script is sourced"
   [[ -t 1 ]] && piped=0 || piped=1 # detect if output is piped
   if [[ $piped -eq 0 ]]; then
     col_reset="\033[0m"
@@ -809,10 +810,10 @@ folder_prep() {
     local folder="$1"
     local max_days=${2:-365}
     if [[ ! -d "$folder" ]]; then
-      debug "Create folder : [$folder]"
+      debug "$clean_icon Create folder : [$folder]"
       mkdir "$folder"
     else
-      debug "Cleanup folder: [$folder] - delete files older than $max_days day(s)"
+      debug "$clean_icon Cleanup folder: [$folder] - delete files older than $max_days day(s)"
       find "$folder" -mtime "+$max_days" -type f -exec rm {} \;
     fi
   fi
