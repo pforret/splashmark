@@ -12,6 +12,7 @@ list_options() {
 flag|h|help|show usage
 flag|q|quiet|no output
 flag|v|verbose|output more
+
 option|l|log_dir|folder for log files |$HOME/log/$script_prefix
 option|t|tmp_dir|folder for temp files|/tmp/$script_prefix
 option|w|width|image width for resizing|1200
@@ -34,10 +35,11 @@ option|r|fontcolor|font color to use|FFFFFF
 option|x|photographer|photographer name (empty: get from Unsplash)|
 option|u|url|photo URL override (empty: get from Unsplash)|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
+
 param|1|action|action to perform: download/search/file/url
 param|?|output|output file
 param|?|input|URL or search term
-" | grep -v '^#'
+" | grep -v '^#' | grep -v '^\s*$'
 }
 
 list_dependencies() {
