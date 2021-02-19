@@ -43,13 +43,6 @@ param|?|input|URL or search term
 }
 
 list_dependencies() {
-  ### Change the next lines to reflect which binaries(programs) or scripts are necessary to run this script
-  # Example 1: a regular package that should be installed with apt/brew/yum/...
-  #curl
-  # Example 2: a program that should be installed with apt/brew/yum/... through a package with a different name
-  #convert|imagemagick
-  # Example 3: a package with its own package manager: basher (shell), go get (golang), cargo (Rust)...
-  #progressbar|basher install pforret/progressbar
   echo -n "
 curl
 exiftool
@@ -813,7 +806,7 @@ folder_prep() {
     local max_days=${2:-365}
     if [[ ! -d "$folder" ]]; then
       debug "$clean_icon Create folder : [$folder]"
-      mkdir "$folder"
+      mkdir -p "$folder"
     else
       debug "$clean_icon Cleanup folder: [$folder] - delete files older than $max_days day(s)"
       find "$folder" -mtime "+$max_days" -type f -exec rm {} \;
@@ -1080,14 +1073,19 @@ import_env_if_any() {
   done
 }
 
-[[ $run_as_root == 1 ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
+[[ $run_as_root == 1 ]]  && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
 [[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && die "user is $USER, CANNOT be root to run [$script_basename]"
 
 initialise_output  # output settings
 lookup_script_data # set default values for flags & options
 init_options
 import_env_if_any # overwrite with .env if any
-parse_options "$@" # overwrite with specified options if any
-prep_log_and_temp_dir
-main  # run main program
-safe_exit # exit and clean up
+if [[ $sourced -eq 0 ]]; then
+  parse_options "$@"    # overwrite with specified options if any
+  prep_log_and_temp_dir # clean up debug and temp folder
+  main                  # run main program
+  safe_exit             # exit and clean up
+else
+  # just disable the trap, don't execute main
+  trap - INT TERM EXIT
+fi
