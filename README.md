@@ -27,7 +27,15 @@ Works with
 Program: splashmark 3.0.0 by peter@forret.com
 Updated: Apr 20 22:27:45 2021
 Description: package_description
-Usage: splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <crop>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] [-d <randomize>] [-e <effect>] [-g <gravity>] [-i <title>] [-z <titlesize>] [-k <subtitle>] [-j <subtitlesize>] [-m <margin>] [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] [-x <photographer>] [-u <url>] [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] <action> <input?> <output?>
+Usage: splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] 
+          [-w <width>] [-c <crop>] 
+          [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] 
+          [-d <randomize>] [-e <effect>] [-g <gravity>] [-i <title>] [-z <titlesize>] 
+          [-k <subtitle>] [-j <subtitlesize>] [-m <margin>] 
+          [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] 
+          [-x <photographer>] [-u <url>] 
+          [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] 
+          <action> <input?> <output?>
 Flags, options and parameters:
     -h|--help        : [flag] show usage [default: off]
     -q|--quiet       : [flag] no output [default: off]
