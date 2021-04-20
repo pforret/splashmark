@@ -19,7 +19,8 @@ Remix images by
 Works with
 * local image file
 * image URL
-* Unsplash image
+* [Unsplash](https://unsplash.com/) images
+* [Pixabay](https://pixabay.com/) images
 
 ## Usage
 
