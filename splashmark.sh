@@ -32,23 +32,16 @@ option|m|margin|margin for watermarks|30
 option|o|fontsize|font size for watermarks|15
 option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
-option|x|photographer|photographer name (empty: get from Unsplash)|
-option|u|url|photo URL override (empty: get from Unsplash)|
+option|x|photographer|photographer name (empty: use name from API)|
+option|u|url|photo URL override (empty: use URL from API)|
+
+option|P|PIXABAY_ACCESSKEY|Pixabay access key|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
 
-param|1|action|action to perform: download/search/file/url
-param|?|output|output file
+param|1|action|action to perform: unsplash/file/url
 param|?|input|URL or search term
+param|?|output|output file
 " | grep -v '^#' | grep -v '^\s*$'
-}
-
-list_dependencies() {
-  echo -n "
-curl
-exiftool
-convert|imagemagick
-mogrify|imagemagick
-" | grep -v "^#" | grep -v '^\s*$'
 }
 
 #####################################################################
@@ -56,45 +49,68 @@ mogrify|imagemagick
 #####################################################################
 
 main() {
-  require_binaries
   log_to_file "[$script_basename] $script_version started"
+  require_binary curl
 
   action=$(lower_case "$action")
   case $action in
-  download|d|unsplash)
-    #TIP: use «splashmark download» to download a specific Unsplash photo and work with it (requires free Unsplash API key)
-    #TIP:> splashmark download splash.jpg "https://unsplash.com/photos/xWOTojs1eg4"
-    #TIP:> splashmark -i "The Title" -k "The subtitle" download output.jpg "https://unsplash.com/photos/xWOTojs1eg4"
-    #TIP:> splashmark -i "Splash" -k "Subtitle" -w 1280 -c 640 -e dark,grain download output.jpg "https://unsplash.com/photos/xWOTojs1eg4"
-    if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
-      die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
-    fi
+  unsplash)
+    #TIP: use «splashmark unsplash» to download or search a Unsplash photo (requires free Unsplash API key)
+    #TIP:> splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
+    #TIP:> splashmark unsplash rose rose.jpg
+    #TIP:> splashmark unsplash rose   (will generate unsplash.rose.jpg)
+    [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] && die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
     image_source="unsplash"
     # shellcheck disable=SC2154
-    photo_id=$(basename "$input")
-    if [[ -n "$photo_id" ]]; then
-      debug "Found photo ID = $photo_id"
-      image_file=$(download_image_from_unsplash "$photo_id")
-      get_metadata_from_unsplash "$photo_id"
+    [[ -z "$input" ]] && die "Need URL or search term to find an Unsplash photo"
+    if [[ "$input" == *"://"* ]]; then
+      [[ ! "$input" == *"://unsplash.com"* ]] && die "[$input] is not a unsplash.com URL"
+      ### Unsplash URL: download one photo
+      photo_id=$(basename "$input")
       # shellcheck disable=SC2154
+      [[ -z "${output:-}" ]] && output="unsplash.$photo_id.jpg"
+    else
+      ### search for terms
+      photo_id=$(search_images_unsplash "$input")
+      photo_slug=$(slugify "$input")
+      [[ -z "${output:-}" ]] && output="unsplash.$photo_slug.jpg"
+    fi
+    debug "Output file: [$output]"
+    if [[ -n "$photo_id" ]]; then
+      debug "Unsplash photo ID = [$photo_id]"
+      image_file=$(download_image_unsplash "$photo_id")
+      download_metadata_unsplash "$photo_id"
       image_modify "$image_file" "$output"
       out "$output"
     fi
     ;;
 
-  search|s)
-    #TIP: use «splashmark search» to search for a keyword on Unsplash and take the Nth photo (requires free Unsplash API key)
-    #TIP:> splashmark search waterfall.jpg waterfall
-    #TIP:> splashmark --randomize --title "Splash" --subtitle "Subtitle" --width  1280 --crop 640 --effect dark,grain search waterfall.jpg waterfall
-    if [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] ; then
-      die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+  pixabay)
+    #TIP: use «splashmark pixabay» to download or search a Pixabay photo (requires free Pixabay API key)
+    #TIP:> splashmark pixabay "https://pixabay.com/photos/rose-flower-love-romance-beautiful-729509/" rose.jpg
+    #TIP:> splashmark pixabay rose rose.jpg
+    #TIP:> splashmark pixabay rose   (will generate pixabay.rose.jpg)
+    [[ -z "${PIXABAY_ACCESSKEY:-}" ]] && die "You need valid Pixabay API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+    image_source="pixabay"
+    # shellcheck disable=SC2154
+    [[ -z "$input" ]] && die "Need URL or search term to find an Pixabay photo"
+    if [[ "$input" == *"://"* ]]; then
+      [[ ! "$input" == *"://pixabay.com"* ]] && die "[$input] is not a pixabay.com URL"
+      ### Unsplash URL: download one photo
+      photo_id=$(basename "${input//-//}")
+      # shellcheck disable=SC2154
+      [[ -z "${output:-}" ]] && output="$photo_id.jpg"
+    else
+      ### search for terms
+      photo_id=$(search_images_pixabay "$input")
+      photo_slug=$(slugify "$input")
+      [[ -z "${output:-}" ]] && output="pixabay.$photo_slug.jpg"
     fi
-    image_source="unsplash"
-    photo_id=$(search_from_unsplash "$input")
+    debug "Output file: [$output]"
     if [[ -n "$photo_id" ]]; then
-      debug "Found photo ID = $photo_id"
-      image_file=$(download_image_from_unsplash "$photo_id")
-      get_metadata_from_unsplash "$photo_id"
+      debug "Pixabay photo ID = [$photo_id]"
+      image_file=$(download_image_pixabay "$photo_id")
+      download_metadata_pixabay "$photo_id"
       image_modify "$image_file" "$output"
       out "$output"
     fi
@@ -103,7 +119,7 @@ main() {
   file|f)
     #TIP: use «splashmark file» to add texts and effects to a existing image
     #TIP:> splashmark file waterfall.jpg sources/original.jpg
-    #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file waterfall.jpg sources/original.jpg
+    #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
     image_source="file"
     [[ ! -f "$input" ]] && die "Cannot find input file [$input]"
     image_modify "$input" "$output"
@@ -113,7 +129,7 @@ main() {
   url|u)
     #TIP: use «splashmark url» to add texts and effects to a image that will be downloaded from a URL
     #TIP:> splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
-    #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
+    #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url "https://i.imgur.com/rbXZcVH.jpg" waterfall.jpg
     image_source="url"
     image_file=$(download_image_from_url "$input")
     [[ ! -f "$image_file" ]] && die "Cannot download input image [$input]"
@@ -137,19 +153,22 @@ main() {
 }
 
 #TIP: to create a social image for Github
-#TIP:> splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" -r EEEEEE -e median,dark,grain search search <repo>.jpg <keyword>
+#TIP:> splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" -r EEEEEE -e median,dark,grain unsplash <keyword>
 #TIP: to create a social image for Instagram
-#TIP:> splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark search instagram.jpg clouds
+#TIP:> splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark pixabay clouds clouds.jpg
 #TIP: to create a social image for Facebook
-#TIP:> splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark search facebook.jpg copacabana
+#TIP:> splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark unsplash copacabana
 
 #####################################################################
 ## Put your helper scripts here
 #####################################################################
 
-unsplash_api() {
+### Unsplash API stuff
+
+cached_unsplash_api() {
   # $1 = relative API URL
   # $2 = jq query path
+  require_binary jq
   local uniq
   local api_endpoint="https://api.unsplash.com"
   local full_url="$api_endpoint$1"
@@ -166,7 +185,7 @@ unsplash_api() {
   local cached="$tmp_dir/unsplash.$uniq.json"
   if [[ ! -f "$cached" ]] ; then
     # only get the data once
-    debug "API = [$show_url]"
+    debug "Unsplash API = [$show_url]"
     curl -s "$full_url" > "$cached"
     if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
       # remove if response is too small to be a valid answer
@@ -188,17 +207,19 @@ unsplash_api() {
     sed 's/,$//'
 }
 
-get_metadata_from_unsplash() {
+download_metadata_unsplash() {
   # only get metadata if it was not yet specified as an option
-  [[ -z "${photographer:-}" ]]  && photographer=$(unsplash_api "/photos/$1" ".user.name")
-  [[ -z "${url:-}" ]] && url=$(unsplash_api "/photos/$1" ".links.html")
+  [[ -z "${photographer:-}" ]]  && photographer=$(cached_unsplash_api "/photos/$1" ".user.name")
+  [[ -z "${url:-}" ]] && url="$(cached_unsplash_api "/photos/$1" ".links.html")"
+  debug "META: Photographer: $photographer"
+  debug "META: URL: $url"
 }
 
-download_image_from_unsplash() {
+download_image_unsplash() {
   # $1 = photo_id
   # returns path of downloaded file
   photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
-  image_url=$(unsplash_api "/photos/$photo_id" .urls.regular)
+  image_url=$(cached_unsplash_api "/photos/$photo_id" .urls.regular)
   cached_image="$tmp_dir/$photo_id.jpg"
   if [[ ! -f "$cached_image" ]]; then
     debug "IMG = [$image_url]"
@@ -209,6 +230,106 @@ download_image_from_unsplash() {
   [[ ! -f "$cached_image" ]] && die "download [$image_url] failed"
   echo "$cached_image"
 }
+
+search_images_unsplash() {
+  # $1 = keyword(s)
+  # returns first result
+  # shellcheck disable=SC2154
+  if [[ "$randomize" == 1 ]] ; then
+    cached_unsplash_api "/search/photos/?query=$1" ".results[0].id"
+  else
+    choose_from=$(cached_unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
+    debug "PICK: $choose_from results in query"
+    [[ $choose_from -gt $randomize ]] && choose_from=$randomize
+    chosen=$((RANDOM % choose_from))
+    debug "PICK: photo $chosen from first $choose_from results"
+    cached_unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
+  fi
+}
+
+### Pixabay API stuff
+
+cached_pixabay_api() {
+  # $1 = relative API URL
+  # $2 = jq query path
+  # https://pixabay.com/api/docs/
+  # https://pixabay.com/api/?key={ KEY }&q=yellow+flowers&image_type=photo
+  require_binary jq
+  local uniq
+  local api_endpoint="https://pixabay.com/api/"
+  local full_url="$api_endpoint$1"
+  local show_url="$api_endpoint$1"
+  if [[ $full_url =~ "?" ]]; then
+    # already has querystring
+    full_url="$full_url&key=$PIXABAY_ACCESSKEY"
+  else
+    # no querystring yet
+    full_url="$full_url?key=$PIXABAY_ACCESSKEY"
+  fi
+  uniq=$(echo "$full_url" | hash 8)
+  # shellcheck disable=SC2154
+  local cached="$tmp_dir/pixabay.$uniq.json"
+  debug "API URL   = [$full_url]"
+  debug "API Cache = [$cached]"
+  if [[ ! -f "$cached" ]] ; then
+    # only get the data once
+    debug "Pixabay API = [$show_url]"
+    curl -s "$full_url" > "$cached"
+    if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
+      # remove if response is too small to be a valid answer
+      rm "$cached"
+      alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
+      return 1
+    fi
+  fi
+  < "$cached" jq "${2:-.}" |
+    sed 's/"//g' |
+    sed 's/,$//'
+}
+
+download_metadata_pixabay() {
+  # only get metadata if it was not yet specified as an option
+  [[ -z "${photographer:-}" ]]  && photographer=$(cached_pixabay_api "?id=$photo_id&image_type=photo" ".hits[0].user")
+  [[ -z "${url:-}" ]] && url="https://pixabay.com/photos/$photo_id/"
+  debug "META: Photographer: $photographer"
+  debug "META: URL: $url"
+}
+
+download_image_pixabay() {
+  # $1 = photo_id
+  # returns path of downloaded file
+  # https://pixabay.com/api/?key=<key>&id=<id>+flowers&image_type=photo
+  photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
+  image_url=$(cached_pixabay_api "?id=$photo_id&image_type=photo" .hits[0].largeImageURL)
+  cached_image="$tmp_dir/$photo_id.jpg"
+  if [[ ! -f "$cached_image" ]]; then
+    debug "IMG = [$image_url]"
+    curl -s -o "$cached_image" "$image_url"
+  else
+    debug "IMG = [$cached_image]"
+  fi
+  [[ ! -f "$cached_image" ]] && die "download [$image_url] failed"
+  echo "$cached_image"
+}
+
+search_images_pixabay() {
+  # $1 = keyword(s)
+  # returns first result
+  # https://pixabay.com/api/?key={ KEY }&q=yellow+flowers&image_type=photo
+  # shellcheck disable=SC2154
+  if [[ "$randomize" == 1 ]] ; then
+    cached_pixabay_api "?image_type=photo&q=$1" ".hits[0].id"
+  else
+    choose_from=$(cached_pixabay_api "?image_type=photo&q=$1" .hits[].id | wc -l)
+    debug "PICK: $choose_from results in query"
+    [[ $choose_from -gt $randomize ]] && choose_from=$randomize
+    chosen=$((RANDOM % choose_from))
+    debug "PICK: photo $chosen from first $choose_from results"
+    cached_pixabay_api "?image_type=photo&q=$1" ".hits[$chosen].id"
+  fi
+}
+
+### Image URL stuff
 
 download_image_from_url(){
   # $1 = url
@@ -227,21 +348,7 @@ download_image_from_url(){
   echo "$cached_image"
 }
 
-search_from_unsplash() {
-  # $1 = keyword(s)
-  # returns first result
-  # shellcheck disable=SC2154
-  if [[ "$randomize" == 1 ]] ; then
-    unsplash_api "/search/photos/?query=$1" ".results[0].id"
-  else
-    choose_from=$(unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
-    debug "PICK: $choose_from results in query"
-    [[ $choose_from -gt $randomize ]] && choose_from=$randomize
-    chosen=$((RANDOM % choose_from))
-    debug "PICK: photo $chosen from first $choose_from results"
-    unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
-  fi
-}
+### Modify images
 
 set_exif() {
   filename="$1"
@@ -311,6 +418,8 @@ image_modify() {
   # $1 = input file
   # $2 = output file
 
+  require_binary convert imagemagick
+
   font_list="$tmp_dir/magick.fonts.txt"
   if [[ ! -f "$font_list" ]] ; then
     convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' > "$font_list"
@@ -369,6 +478,14 @@ text_resolve() {
     | sed "s|{url}|$url|" \
     | sed "s|https://||"
     ;;
+  pixabay)
+    echo "$1" \
+    | sed "s|{copyright}|Photo by {photographer} on Pixabay.com|" \
+    | sed "s|{copyright2}|© {photographer} » Pixabay.com|" \
+    | sed "s|{photographer}|$photographer|" \
+    | sed "s|{url}|$url|" \
+    | sed "s|https://||"
+    ;;
     *)
     echo "$1" \
     | sed "s|{copyright}| |" \
@@ -384,6 +501,7 @@ image_effect(){
   # $2 = effect name
   # shellcheck disable=SC2154
   [[ ! -f "$1" ]] && return 1
+  require_binary mogrify imagemagick
 
   for fx1 in $(echo "$effect" | tr ',' "\n") ; do
     debug "EFX : $fx1"
@@ -411,6 +529,8 @@ image_watermark() {
   # $3 = text
 
   [[ ! -f "$1" ]] && return 1
+  require_binary mogrify imagemagick
+
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
@@ -488,16 +608,15 @@ image_title() {
 
 #####################################################################
 ################### DO NOT MODIFY BELOW THIS LINE ###################
+#####################################################################
 
 # set strict mode -  via http://redsymbol.net/articles/unofficial-bash-strict-mode/
 # removed -e because it made basic [[ testing ]] difficult
 set -uo pipefail
 IFS=$'\n\t'
-# shellcheck disable=SC2120
 hash() {
   length=${1:-6}
-  # shellcheck disable=SC2230
-  if [[ -n $(which md5sum) ]]; then
+  if [[ -n $(command -v md5sum) ]]; then
     # regular linux
     md5sum | cut -c1-"$length"
   else
@@ -515,11 +634,9 @@ quiet=0
 #to enable quiet even before option parsing
 [[ $# -gt 0 ]] && [[ $1 == "-q" ]] && quiet=1
 
-## ----------- TERMINAL OUTPUT STUFF
-
+### stdout/stderr output
 initialise_output() {
   [[ "${BASH_SOURCE[0]:-}" != "${0}" ]] && sourced=1 || sourced=0
-  ((sourced)) && debug "$info_icon script is sourced"
   [[ -t 1 ]] && piped=0 || piped=1 # detect if output is piped
   if [[ $piped -eq 0 ]]; then
     col_reset="\033[0m"
@@ -535,14 +652,14 @@ initialise_output() {
 
   [[ $(echo -e '\xe2\x82\xac') == '€' ]] && unicode=1 || unicode=0 # detect if unicode is supported
   if [[ $unicode -gt 0 ]]; then
-    char_succ="✔"
-    char_fail="✖"
-    char_alrt="➨"
-    char_wait="…"
-    info_icon="🔎"
-    config_icon="🖌️"
-    clean_icon="🧹"
-    require_icon="📎"
+    char_succ="✅"
+    char_fail="⛔"
+    char_alrt="✴️"
+    char_wait="⏳"
+    info_icon="🌼"
+    config_icon="🌱"
+    clean_icon="🧽"
+    require_icon="🔌"
   else
     char_succ="OK "
     char_fail="!! "
@@ -554,56 +671,84 @@ initialise_output() {
     require_icon="[r]"
   fi
   error_prefix="${col_red}>${col_reset}"
-
-  readonly nbcols=$(tput cols 2>/dev/null || echo 80)
-  readonly wprogress=$((nbcols - 5))
 }
 
-out() { ((quiet)) || printf '%b\n' "$*"; }
-
+out() {     ((quiet)) && true || printf '%b\n' "$*"; }
+debug() {   if ((verbose)); then out "${col_ylw}# $* ${col_reset}" >&2; else true; fi; }
+die() {     out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2 ; tput bel ; safe_exit ; }
+alert() {   out "${col_red}${char_alrt}${col_reset}: $*" >&2 ; }
+success() { out "${col_grn}${char_succ}${col_reset}  $*"; }
+announce() { out "${col_grn}${char_wait}${col_reset}  $*"; sleep 1 ; }
 progress() {
   ((quiet)) || (
-    ((piped)) && out "$*" || printf "... %-${wprogress}b\r" "$*                                             "
+    local screen_width
+    screen_width=$(tput cols 2>/dev/null || echo 80)
+    local rest_of_line
+    rest_of_line=$((screen_width - 5))
+
+    if flag_set ${piped:-0}; then
+      out "$*" >&2
+    else
+      printf "... %-${rest_of_line}b\r" "$*                                             " >&2
+    fi
   )
 }
 
-die()     { tput bel; out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2; safe_exit; }
-
-fail()    { tput bel; out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2; safe_exit; }
-
-alert()   { out "${col_red}${char_alrt}${col_reset}: $*" >&2 ; }                       # print error and continue
-
-success() { out "${col_grn}${char_succ}${col_reset}  $*" ; }
-
-announce(){ out "${col_grn}${char_wait}${col_reset}  $*"; sleep 1 ; }
-
-debug()   { ((verbose)) && out "${col_ylw}# $* ${col_reset}" >&2 ; }
-
 log_to_file() { [[ -n ${log_file:-} ]] && echo "$(date '+%H:%M:%S') | $*" >>"$log_file"; }
 
-lower_case()   { echo "$*" | awk '{print tolower($0)}' ; }
-upper_case()   { echo "$*" | awk '{print toupper($0)}' ; }
+### string processing
+lower_case() { echo "$*" | tr '[:upper:]' '[:lower:]'; }
+upper_case() { echo "$*" | tr '[:lower:]' '[:upper:]'; }
 
-slugify()     {
+slugify() {
+    # slugify <input> <separator>
+    # slugify "Jack, Jill & Clémence LTD"      => jack-jill-clemence-ltd
+    # slugify "Jack, Jill & Clémence LTD" "_"  => jack_jill_clemence_ltd
+    separator="${2:-}"
+    [[ -z "$separator" ]] && separator="-"
     # shellcheck disable=SC2020
-  lower_case "$*" \
-  | tr \
-    'àáâäæãåāçćčèéêëēėęîïííīįìłñńôoöòóœøōõßśšûüùúūÿžźż' \
-    'aaaaaaaaccceeeeeeeiiiiiiilnnooooooooosssuuuuuyzzz' \
-  | awk '{
-    gsub(/[^0-9a-z ]/,"");
-    gsub(/^\s+/,"");
-    gsub(/^s+$/,"");
-    gsub(" ","-");
-    print;
-    }' \
-  | cut -c1-50
-  }
+    echo "$1" |
+        tr '[:upper:]' '[:lower:]' |
+        tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
+        awk '{
+          gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_]/," ",$0);
+          gsub(/^  */,"",$0);
+          gsub(/  *$/,"",$0);
+          gsub(/  */,"-",$0);
+          gsub(/[^a-z0-9\-]/,"");
+          print;
+          }' |
+        sed "s/-/$separator/g"
+}
 
-confirm() { is_set $force && return 0; read -r -p "$1 [y/N] " -n 1; echo " "; [[ $REPLY =~ ^[Yy]$ ]];}
+title_case() {
+    # title_case <input> <separator>
+    # title_case "Jack, Jill & Clémence LTD"     => JackJillClemenceLtd
+    # title_case "Jack, Jill & Clémence LTD" "_" => Jack_Jill_Clemence_Ltd
+    separator="${2:-}"
+    # shellcheck disable=SC2020
+    echo "$1" |
+        tr '[:upper:]' '[:lower:]' |
+        tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
+        awk '{ gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_-]/," ",$0); print $0; }' |
+        awk '{
+          for (i=1; i<=NF; ++i) {
+              $i = toupper(substr($i,1,1)) tolower(substr($i,2))
+          };
+          print $0;
+          }' |
+        sed "s/ /$separator/g" |
+        cut -c1-50
+}
 
-lower_case() { echo "$*" | awk '{print tolower($0)}'; }
-upper_case() { echo "$*" | awk '{print toupper($0)}'; }
+### interactive
+confirm() {
+  # $1 = question
+  flag_set $force && return 0
+  read -r -p "$1 [y/N] " -n 1
+  echo " "
+  [[ $REPLY =~ ^[Yy]$ ]]
+}
 
 ask() {
   # $1 = variable name
@@ -624,7 +769,7 @@ trap "die \"ERROR \$? after \$SECONDS seconds \n\
 \$(< \$script_install_path awk -v lineno=\$LINENO \
 'NR == lineno {print \"\${error_prefix} from line \" lineno \" : \" \$0}')" INT TERM EXIT
 # cf https://askubuntu.com/questions/513932/what-is-the-bash-command-variable-good-for
-# trap 'echo ‘$BASH_COMMAND’ failed with error code $?' ERR
+
 safe_exit() {
   [[ -n "${tmp_file:-}" ]] && [[ -f "$tmp_file" ]] && rm "$tmp_file"
   trap - INT TERM EXIT
@@ -632,40 +777,45 @@ safe_exit() {
   exit 0
 }
 
-is_set() { [[ "$1" -gt 0 ]]; }
-is_empty() { [[ -z "$1" ]]; }
-is_not_empty() { [[ -n "$1" ]]; }
-
-is_file() { [[ -f "$1" ]]; }
-is_dir() { [[ -d "$1" ]]; }
+flag_set() { [[ "$1" -gt 0 ]]; }
 
 show_usage() {
-  out "Program: ${col_grn}$script_basename $script_version${col_reset} created on ${col_grn}$script_created${col_reset} by ${col_ylw}$script_author${col_reset}"
+  out "Program: ${col_grn}$script_basename $script_version${col_reset} by ${col_ylw}$script_author${col_reset}"
   out "Updated: ${col_grn}$script_modified${col_reset}"
-
+  out "Description: package_description"
   echo -n "Usage: $script_basename"
   list_options |
     awk '
   BEGIN { FS="|"; OFS=" "; oneline="" ; fulltext="Flags, options and parameters:"}
   $1 ~ /flag/  {
-    fulltext = fulltext sprintf("\n    -%1s|--%-10s: [flag] %s [default: off]",$2,$3,$4) ;
+    fulltext = fulltext sprintf("\n    -%1s|--%-12s: [flag] %s [default: off]",$2,$3,$4) ;
     oneline  = oneline " [-" $2 "]"
     }
   $1 ~ /option/  {
-    fulltext = fulltext sprintf("\n    -%1s|--%s <%s>: [optn] %s",$2,$3,"val",$4) ;
+    fulltext = fulltext sprintf("\n    -%1s|--%-12s: [option] %s",$2,$3 " <?>",$4) ;
     if($5!=""){fulltext = fulltext "  [default: " $5 "]"; }
     oneline  = oneline " [-" $2 " <" $3 ">]"
     }
+  $1 ~ /list/  {
+    fulltext = fulltext sprintf("\n    -%1s|--%-12s: [list] %s (array)",$2,$3 " <?>",$4) ;
+    fulltext = fulltext "  [default empty]";
+    oneline  = oneline " [-" $2 " <" $3 ">]"
+    }
   $1 ~ /secret/  {
-    fulltext = fulltext sprintf("\n    -%1s|--%s <%s>: [secr] %s",$2,$3,"val",$4) ;
+    fulltext = fulltext sprintf("\n    -%1s|--%s <%s>: [secret] %s",$2,$3,"?",$4) ;
       oneline  = oneline " [-" $2 " <" $3 ">]"
     }
   $1 ~ /param/ {
     if($2 == "1"){
-          fulltext = fulltext sprintf("\n    %-10s: [parameter] %s","<"$3">",$4);
+          fulltext = fulltext sprintf("\n    %-17s: [parameter] %s","<"$3">",$4);
           oneline  = oneline " <" $3 ">"
-     } else {
-          fulltext = fulltext sprintf("\n    %-10s: [parameters] %s (1 or more)","<"$3">",$4);
+     }
+     if($2 == "?"){
+          fulltext = fulltext sprintf("\n    %-17s: [parameter] %s (optional)","<"$3">",$4);
+          oneline  = oneline " <" $3 "?>"
+     }
+     if($2 == "n"){
+          fulltext = fulltext sprintf("\n    %-17s: [parameters] %s (1 or more)","<"$3">",$4);
           oneline  = oneline " <" $3 " …>"
      }
     }
@@ -673,24 +823,55 @@ show_usage() {
   '
 }
 
+check_last_version(){
+  (
+  # shellcheck disable=SC2164
+  pushd "$script_install_folder" &> /dev/null
+  if [[ -d .git ]] ; then
+    local remote
+    remote="$(git remote -v | grep fetch | awk 'NR == 1 {print $2}')"
+    progress "Check for latest version - $remote"
+    git remote update &> /dev/null
+    if [[ $(git rev-list --count "HEAD...HEAD@{upstream}" 2>/dev/null) -gt 0 ]] ; then
+      out "There is a more recent update of this script - run <<$script_prefix update>> to update"
+    fi
+  fi
+  # shellcheck disable=SC2164
+  popd &> /dev/null
+  )
+}
+
+update_script_to_latest(){
+  # run in background to avoid problems with modifying a running interpreted script
+  (
+  sleep 1
+  cd "$script_install_folder" && git pull
+  ) &
+}
+
 show_tips() {
-  grep <"${BASH_SOURCE[0]}" -v "\$0" |
-    awk "
-  /TIP: / {\$1=\"\"; gsub(/«/,\"$col_grn\"); gsub(/»/,\"$col_reset\"); print \"*\" \$0}
-  /TIP:> / {\$1=\"\"; print \" $col_ylw\" \$0 \"$col_reset\"}
-  "
+  ((sourced)) && return 0
+  # shellcheck disable=SC2016
+  grep <"${BASH_SOURCE[0]}" -v '$0' \
+  | awk \
+      -v green="$col_grn" \
+      -v yellow="$col_ylw" \
+      -v reset="$col_reset" \
+      '
+      /TIP: /  {$1=""; gsub(/«/,green); gsub(/»/,reset); print "*" $0}
+      /TIP:> / {$1=""; print " " yellow $0 reset}
+      ' \
+  | awk \
+      -v script_basename="$script_basename" \
+      -v script_prefix="$script_prefix" \
+      '{
+      gsub(/\$script_basename/,script_basename);
+      gsub(/\$script_prefix/,script_prefix);
+      print ;
+      }'
 }
 
 check_script_settings() {
-    ## leave this default action, it will make it easier to test your script
-  if ((piped)); then
-    debug "Skip dependencies for .env files"
-  else
-    out "## ${col_grn}dependencies${col_reset}: "
-    out "$(list_dependencies | cut -d'|' -f1 | sort | xargs)"
-    out " "
-  fi
-
   if [[ -n $(filter_option_type flag) ]]; then
     out "## ${col_grn}boolean flags${col_reset}:"
     filter_option_type flag |
@@ -767,50 +948,6 @@ init_options() {
     ')
   if [[ -n "$init_command" ]]; then
     eval "$init_command"
-  fi
-}
-
-require_binaries() {
-  local required_binary
-  local install_instructions
-
-  while read -r line; do
-    required_binary=$(echo "$line" | cut -d'|' -f1)
-    [[ -z "$required_binary" ]] && continue
-    # shellcheck disable=SC2230
-    path_binary=$(which "$required_binary" 2>/dev/null)
-    [[ -n "$path_binary" ]] && debug "️$require_icon required [$required_binary] -> $path_binary"
-    [[ -n "$path_binary" ]] && continue
-    required_package=$(echo "$line" | cut -d'|' -f2)
-    if [[ $(echo "$required_package" | wc -w) -gt 1 ]]; then
-      # example: setver|basher install setver
-      install_instructions="$required_package"
-    else
-      [[ -z "$required_package" ]] && required_package="$required_binary"
-      if [[ -n "$install_package" ]]; then
-        install_instructions="$install_package $required_package"
-      else
-        install_instructions="(install $required_package with your package manager)"
-      fi
-    fi
-    alert "$script_basename needs [$required_binary] but it cannot be found"
-    alert "1) install package  : $install_instructions"
-    alert "2) check path       : export PATH=\"[path of your binary]:\$PATH\""
-    die "Missing program/script [$required_binary]"
-  done < <(list_dependencies)
-}
-
-folder_prep() {
-  if [[ -n "$1" ]]; then
-    local folder="$1"
-    local max_days=${2:-365}
-    if [[ ! -d "$folder" ]]; then
-      debug "$clean_icon Create folder : [$folder]"
-      mkdir -p "$folder"
-    else
-      debug "$clean_icon Cleanup folder: [$folder] - delete files older than $max_days day(s)"
-      find "$folder" -mtime "+$max_days" -type f -exec rm {} \;
-    fi
   fi
 }
 
@@ -929,6 +1066,37 @@ parse_options() {
   fi
 }
 
+require_binary(){
+  binary="$1"
+  path_binary=$(command -v "$binary" 2>/dev/null)
+  [[ -n "$path_binary" ]] && debug "️$require_icon required [$binary] -> $path_binary" && return 0
+  #
+  words=$(echo "${2:-}" | wc -l)
+  case $words in
+    0)  install_instructions="$install_package $1";;
+    1)  install_instructions="$install_package $2";;
+    *)  install_instructions="$2"
+  esac
+  alert "$script_basename needs [$binary] but it cannot be found"
+  alert "1) install package  : $install_instructions"
+  alert "2) check path       : export PATH=\"[path of your binary]:\$PATH\""
+  die   "Missing program/script [$binary]"
+}
+
+folder_prep() {
+  if [[ -n "$1" ]]; then
+    local folder="$1"
+    local max_days=${2:-365}
+    if [[ ! -d "$folder" ]]; then
+      debug "$clean_icon Create folder : [$folder]"
+      mkdir -p "$folder"
+    else
+      debug "$clean_icon Cleanup folder: [$folder] - delete files older than $max_days day(s)"
+      find "$folder" -mtime "+$max_days" -type f -exec rm {} \;
+    fi
+  fi
+}
+
 count_words() { wc -w | awk '{ gsub(/ /,""); print}'; }
 
 recursive_readlink() {
@@ -958,8 +1126,9 @@ lookup_script_data() {
   script_install_path="${BASH_SOURCE[0]}"
   debug "$info_icon Script path: $script_install_path"
   script_install_path=$(recursive_readlink "$script_install_path")
-  debug "$info_icon Actual path: $script_install_path"
-  readonly script_install_folder="$(dirname "$script_install_path")"
+  debug "$info_icon Linked path: $script_install_path"
+  readonly script_install_folder="$( cd -P "$( dirname "$script_install_path" )" && pwd )"
+  debug "$info_icon In folder  : $script_install_folder"
   if [[ -f "$script_install_path" ]]; then
     script_hash=$(hash <"$script_install_path" 8)
     script_lines=$(awk <"$script_install_path" 'END {print NR}')
@@ -992,7 +1161,7 @@ lookup_script_data() {
     install_package="brew install"
     ;;
   Linux | GNU*)
-    if [[ $(which lsb_release) ]]; then
+    if [[ $(command -v lsb_release) ]]; then
       # 'normal' Linux distributions
       os_name=$(lsb_release -i)    # Ubuntu
       os_version=$(lsb_release -r) # 20.04
@@ -1073,13 +1242,15 @@ import_env_if_any() {
   done
 }
 
-[[ $run_as_root == 1 ]]  && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
+initialise_output  # output settings
+lookup_script_data # find installation folder
+
+[[ $run_as_root == 1  ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
 [[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && die "user is $USER, CANNOT be root to run [$script_basename]"
 
-initialise_output  # output settings
-lookup_script_data # set default values for flags & options
-init_options
-import_env_if_any # overwrite with .env if any
+init_options       # set default values for flags & options
+import_env_if_any  # overwrite with .env if any
+
 if [[ $sourced -eq 0 ]]; then
   parse_options "$@"    # overwrite with specified options if any
   prep_log_and_temp_dir # clean up debug and temp folder
