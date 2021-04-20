@@ -131,47 +131,60 @@ vi splashmark/.env
 ```
 ## Example (verbose) output:
 
-        $ splashmark -w 800 -p UbuntuMono-Bold.ttf -e median,dark,grain -1 "font: UbuntuMono Bold, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} -i "Just an example" -v search examples/example.jpg beach
-        
-        # Expect : 3 single parameter(s): action output input 
-        # Found  : action=search 
-        # Found  : output=examples/example.jpg 
-        # Found  : input=beach 
-        # Program: splashmark 2.3.0 
-        # Updated: 2020-10-10 13:45 
-        # Running: on Linux (#488-Microsoft Mon Sep 01 13:43:00 PST 2020) 
-        # Verify : awk basename convert cut date dirname exiftool find grep head mkdir mogrify sed stat tput uname wc  
-        # Cleanup folder: [.tmp] - delete files older than 1 day(s) 
-        # tmp_file: .tmp/2020-10-19.xzAVHb 
-        # Cleanup folder: [log] - delete files older than 7 day(s) 
-        # log_file: log/splashmark.2020-10-19.log 
-        # API = [.tmp/unsplash.f499e0ec.json] 
-        # Found photo ID = fbbxMwwKqZk 
-        # API = [.tmp/unsplash.4704b4c4.json] 
-        # IMG = [.tmp/fbbxMwwKqZk.jpg] 
-        # API = [.tmp/unsplash.4704b4c4.json] 
-        # API = [.tmp/unsplash.4704b4c4.json] 
-        # FONT [./fonts/UbuntuMono-Bold.ttf] exists as a splashmark font 
-        # SIZE: to 800 wide --> examples/example.jpg 
-        # EXIF: set [Writer-Editor] to [splashmark] for [examples/example.jpg] 
-        # EXIF: set [Artist] to [Boxed Water Is Better] for [examples/example.jpg] 
-        # EXIF: set [Creator] to [Boxed Water Is Better] for [examples/example.jpg] 
-        # EXIF: set [OwnerID] to [Boxed Water Is Better] for [examples/example.jpg] 
-        # EXIF: set [OwnerName] to [Boxed Water Is Better] for [examples/example.jpg] 
-        # EXIF: set [Credit] to [Photo: Boxed Water Is Better on Unsplash.com] for [examples/example.jpg] 
-        # EXIF: set [ImageDescription] to [Photo: Boxed Water Is Better on Unsplash.com] for [examples/example.jpg] 
-        # EFX : median 
-        # EFX : dark 
-        # EFX : grain 
-        # MARK: [font: UbuntuMono Bold, via Google Fonts] in NorthWest corner ... 
-        # MARK: [Photo: unsplash.com/photos/fbbxMwwKqZk] in NorthEast corner ... 
-        # MARK: [www.example.com] in SouthWest corner ... 
-        # MARK: [Photo by Boxed Water Is Better on Unsplash.com] in SouthEast corner ... 
-        # MARK: title [Just an example] in Center ... 
-        examples/example.jpg
-        # splashmark finished after 5 seconds
+```bash
+$ splashmark -w 800 -p UbuntuMono-Bold.ttf -e median,dark,grain -1 "font: UbuntuMono Bold, via Google Fonts" -2 "Photo: {url}" -3 "www.example.com" -4 {copyright} -i "Just an example" -v unsplash beach examples/example.jpg
 
+# 🌱 Expect : 1 single parameter(s): action
+# 🌱 Assign : action=unsplash
+# 🌱 Expect : 2 optional parameter(s): input output
+# 🌱 Assign : input=beach
+# 🌱 Assign : output=example.jpg
+# 🧽 Cleanup folder: [/tmp/splashmark] - delete files older than 1 day(s)
+# 🌱 tmp_file: /tmp/splashmark/2021-04-20.CCTrVM
+# 🧽 Cleanup folder: [/Users/<user>/log/splashmark] - delete files older than 30 day(s)
+# 🌱 log_file: /Users/<user>/log/splashmark/splashmark.2021-04-20.log
+# ️🔌 required [curl] -> /usr/bin/curl
+# ️🔌 required [jq] -> /usr/local/bin/jq
+# Unsplash API = [https://api.unsplash.com/search/photos/?query=beach] 
+# Output file: [example.jpg]
+# Unsplash photo ID = [M8CClPDw02I]
+# ️🔌 required [jq] -> /usr/local/bin/jq
+# Unsplash API = [https://api.unsplash.com/photos/M8CClPDw02I] 
+# IMG = [https://images.unsplash.com/photo-1591017403286-fd8493524e1e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxNzAwMTV8MHwxfGFsbHx8fHx8fHx8fDE2MTg5NTE1OTk&ixlib=rb-1.2.1&q=80&w=1080] 
+# ️🔌 required [jq] -> /usr/local/bin/jq
+# API = [/tmp/splashmark/unsplash.0cff5d45.json]
+# ️🔌 required [jq] -> /usr/local/bin/jq
+# API = [/tmp/splashmark/unsplash.0cff5d45.json]
+# META: Photographer: Boxed Water Is Better
+# META: URL: https://unsplash.com/photos/M8CClPDw02I
+# ️🔌 required [convert] -> /usr/local/bin/convert
+# FONT [/Users/<user>/.basher/cellar/packages/pforret/splashmark/fonts/UbuntuMono-Bold.ttf] exists as a splashmark font
+# SIZE: to 800 wide --> example.jpg
+# EXIF: set [Writer-Editor] to [https://github.com/pforret/splashmark] for [example.jpg]
+# EXIF: set [Artist] to [Boxed Water Is Better] for [example.jpg]
+# EXIF: set [Creator] to [Boxed Water Is Better] for [example.jpg]
+# EXIF: set [OwnerID] to [Boxed Water Is Better] for [example.jpg]
+# EXIF: set [OwnerName] to [Boxed Water Is Better] for [example.jpg]
+# EXIF: set [Credit] to [Photo: Boxed Water Is Better on Unsplash.com] for [example.jpg]
+# EXIF: set [ImageDescription] to [Photo: Boxed Water Is Better on Unsplash.com] for [example.jpg]
+# ️🔌 required [mogrify] -> /usr/local/bin/mogrify
+# EFX : median
+# EFX : dark
+# EFX : grain
+# ️🔌 required [mogrify] -> /usr/local/bin/mogrify
+# MARK: [font: UbuntuMono Bold, via Google Fonts] in NorthWest corner ...
+# ️🔌 required [mogrify] -> /usr/local/bin/mogrify
+# MARK: [Photo: unsplash.com/photos/M8CClPDw02I] in NorthEast corner ...
+# ️🔌 required [mogrify] -> /usr/local/bin/mogrify
+# MARK: [www.example.com] in SouthWest corner ...
+# ️🔌 required [mogrify] -> /usr/local/bin/mogrify
+# MARK: [Photo by Boxed Water Is Better on Unsplash.com] in SouthEast corner ...
+# MARK: title [Just an example] in Center ...
+example.jpg
+# splashmark finished after 7 seconds
+```
 ![example.jpg](examples/example.jpg)
+
 
 ## Examples
 check [EXAMPLES.md](https://github.com/pforret/splashmark/blob/master/EXAMPLES.md)
