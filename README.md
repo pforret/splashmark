@@ -23,7 +23,7 @@ Works with
 
 ## Usage
 
-```
+```bash
 Program: splashmark 3.0.0 by peter@forret.com
 Updated: Apr 20 22:27:45 2021
 Description: package_description
@@ -79,11 +79,14 @@ Flags, options and parameters:
 * use splashmark env to generate an example .env file
   splashmark env > .env
 * to create a social image for Github
-  splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" -r EEEEEE -e median,dark,grain unsplash <keyword>
+  splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" 
+    -r EEEEEE -e median,dark,grain unsplash <keyword>
 * to create a social image for Instagram
-  splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark pixabay clouds clouds.jpg
+  splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark 
+    pixabay clouds clouds.jpg
 * to create a social image for Facebook
-  splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark unsplash copacabana                
+  splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches" 
+    -e dark unsplash copacabana                
 ```
 
 ## installation
