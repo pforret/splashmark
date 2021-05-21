@@ -362,10 +362,11 @@ set_exif() {
 }
 
 set_metadata_tags() {
+  require_binary exiftool
+
   # $1 = type
   # $2 = filename
   # https://exiftool.org/TagNames/index.html
-  #  ExifTool Version Number         : 10.10
   #  Artist                          : Artist
   #  By-line                         : Author
   #  By-line Title                   : Author Title
@@ -376,14 +377,10 @@ set_metadata_tags() {
   #  Country-Primary Location Name   : Country
   #  Creator                         : Creator
   #  Credit                          : Credit
-  #  Date Created                    : 2020:10:18
-  #  File Name                       : metadata.jpg
   #  Headline                        : Headline
   #  ImageDescription                : ImageDescription
   #  Keywords                        : Keywords
   #  Object Name                     : Document Title
-  #  Original Transmission Reference : Reference
-  #  Owner ID                        : OwnerID
   #  Owner Name                      : OwnerName
   #  Source                          : Source
   #  Special Instructions            : Instructions
@@ -393,7 +390,7 @@ set_metadata_tags() {
   #  Writer-Editor                   : Caption Writer
   set_exif "$2" "Writer-Editor" "https://github.com/pforret/splashmark"
   if [[ "$1" == "unsplash" ]]; then
-    ## metadata comes from Unsplash
+    ## metadata comes from Unsplash/Pixabay
     if [[ -f "$2" && -n ${photographer} ]]; then
       set_exif "$2" "Artist" "$photographer"
       set_exif "$2" "Creator" "$photographer"
