@@ -116,7 +116,7 @@ main() {
     fi
     ;;
 
-  file|f)
+  file | f)
     #TIP: use «splashmark file» to add texts and effects to a existing image
     #TIP:> splashmark file waterfall.jpg sources/original.jpg
     #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
@@ -126,7 +126,7 @@ main() {
     out "$output"
     ;;
 
-  url|u)
+  url | u)
     #TIP: use «splashmark url» to add texts and effects to a image that will be downloaded from a URL
     #TIP:> splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
     #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url "https://i.imgur.com/rbXZcVH.jpg" waterfall.jpg
@@ -137,7 +137,7 @@ main() {
     out "$output"
     ;;
 
-  check|env)
+  check | env)
     ## leave this default action, it will make it easier to test your script
     #TIP: use «$script_prefix check» to check if this script is ready to execute and what values the options/flags are
     #TIP:> $script_prefix check
@@ -183,17 +183,17 @@ cached_unsplash_api() {
   uniq=$(echo "$full_url" | hash 8)
   # shellcheck disable=SC2154
   local cached="$tmp_dir/unsplash.$uniq.json"
-  if [[ ! -f "$cached" ]] ; then
+  if [[ ! -f "$cached" ]]; then
     # only get the data once
     debug "Unsplash API = [$show_url]"
-    curl -s "$full_url" > "$cached"
-    if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
+    curl -s "$full_url" >"$cached"
+    if [[ $(wc <"$cached" -c) -lt 10 ]]; then
       # remove if response is too small to be a valid answer
       rm "$cached"
       alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
       return 1
     fi
-    if grep -q "Rate Limit Exceeded" "$cached" ; then
+    if grep -q "Rate Limit Exceeded" "$cached"; then
       # remove if response is API throttling starts
       rm "$cached"
       alert "API call to [$1] was throttled - remember it's limited to 50 req/hr!"
@@ -202,14 +202,14 @@ cached_unsplash_api() {
   else
     debug "API = [$cached]"
   fi
-  < "$cached" jq "${2:-.}" |
+  jq <"$cached" "${2:-.}" |
     sed 's/"//g' |
     sed 's/,$//'
 }
 
 download_metadata_unsplash() {
   # only get metadata if it was not yet specified as an option
-  [[ -z "${photographer:-}" ]]  && photographer=$(cached_unsplash_api "/photos/$1" ".user.name")
+  [[ -z "${photographer:-}" ]] && photographer=$(cached_unsplash_api "/photos/$1" ".user.name")
   [[ -z "${url:-}" ]] && url="$(cached_unsplash_api "/photos/$1" ".links.html")"
   debug "META: Photographer: $photographer"
   debug "META: URL: $url"
@@ -235,7 +235,7 @@ search_images_unsplash() {
   # $1 = keyword(s)
   # returns first result
   # shellcheck disable=SC2154
-  if [[ "$randomize" == 1 ]] ; then
+  if [[ "$randomize" == 1 ]]; then
     cached_unsplash_api "/search/photos/?query=$1" ".results[0].id"
   else
     choose_from=$(cached_unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
@@ -271,25 +271,25 @@ cached_pixabay_api() {
   local cached="$tmp_dir/pixabay.$uniq.json"
   debug "API URL   = [$full_url]"
   debug "API Cache = [$cached]"
-  if [[ ! -f "$cached" ]] ; then
+  if [[ ! -f "$cached" ]]; then
     # only get the data once
     debug "Pixabay API = [$show_url]"
-    curl -s "$full_url" > "$cached"
-    if [[ $(< "$cached" wc -c) -lt 10 ]] ; then
+    curl -s "$full_url" >"$cached"
+    if [[ $(wc <"$cached" -c) -lt 10 ]]; then
       # remove if response is too small to be a valid answer
       rm "$cached"
       alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
       return 1
     fi
   fi
-  < "$cached" jq "${2:-.}" |
+  jq <"$cached" "${2:-.}" |
     sed 's/"//g' |
     sed 's/,$//'
 }
 
 download_metadata_pixabay() {
   # only get metadata if it was not yet specified as an option
-  [[ -z "${photographer:-}" ]]  && photographer=$(cached_pixabay_api "?id=$photo_id&image_type=photo" ".hits[0].user")
+  [[ -z "${photographer:-}" ]] && photographer=$(cached_pixabay_api "?id=$photo_id&image_type=photo" ".hits[0].user")
   [[ -z "${url:-}" ]] && url="https://pixabay.com/photos/$photo_id/"
   debug "META: Photographer: $photographer"
   debug "META: URL: $url"
@@ -317,7 +317,7 @@ search_images_pixabay() {
   # returns first result
   # https://pixabay.com/api/?key={ KEY }&q=yellow+flowers&image_type=photo
   # shellcheck disable=SC2154
-  if [[ "$randomize" == 1 ]] ; then
+  if [[ "$randomize" == 1 ]]; then
     cached_pixabay_api "?image_type=photo&q=$1" ".hits[0].id"
   else
     choose_from=$(cached_pixabay_api "?image_type=photo&q=$1" .hits[].id | wc -l)
@@ -331,7 +331,7 @@ search_images_pixabay() {
 
 ### Image URL stuff
 
-download_image_from_url(){
+download_image_from_url() {
   # $1 = url
   local uniq
   local extension="jpg"
@@ -339,7 +339,7 @@ download_image_from_url(){
   [[ "$1" =~ .gif ]] && extension="gif"
   uniq=$(echo "$1" | hash 8)
   cached_image="$tmp_dir/image.$uniq.$extension"
-  if [[ ! -f "$cached_image" ]] ; then
+  if [[ ! -f "$cached_image" ]]; then
     debug "IMG = [$1]"
     curl -s -o "$cached_image" "$1"
   else
@@ -392,7 +392,7 @@ set_metadata_tags() {
   #  Urgency                         : 1 (most urgent)
   #  Writer-Editor                   : Caption Writer
   set_exif "$2" "Writer-Editor" "https://github.com/pforret/splashmark"
-  if [[ "$1" == "unsplash" ]] ; then
+  if [[ "$1" == "unsplash" ]]; then
     ## metadata comes from Unsplash
     if [[ -f "$2" && -n ${photographer} ]]; then
       set_exif "$2" "Artist" "$photographer"
@@ -421,14 +421,14 @@ image_modify() {
   require_binary convert imagemagick
 
   font_list="$tmp_dir/magick.fonts.txt"
-  if [[ ! -f "$font_list" ]] ; then
-    convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' > "$font_list"
+  if [[ ! -f "$font_list" ]]; then
+    convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' >"$font_list"
   fi
-  if [[ -f "$fonttype" ]] ; then
+  if [[ -f "$fonttype" ]]; then
     debug "FONT [$fonttype] exists as a font file"
-  elif grep -q "$fonttype" "$font_list" ; then
+  elif grep -q "$fonttype" "$font_list"; then
     debug "FONT [$fonttype] exists as a standard font"
-  elif [[ -f "$script_install_folder/fonts/$fonttype" ]] ; then
+  elif [[ -f "$script_install_folder/fonts/$fonttype" ]]; then
     fonttype="$script_install_folder/fonts/$fonttype"
     debug "FONT [$fonttype] exists as a splashmark font"
   else
@@ -443,14 +443,14 @@ image_modify() {
     convert "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
   else
     debug "SIZE: to $width wide --> $2"
-    convert "$1" -gravity Center -resize "${width}"x -quality 95%  "$2"
+    convert "$1" -gravity Center -resize "${width}"x -quality 95% "$2"
   fi
   ## set EXIF/IPTC tags
   set_metadata_tags "$image_source" "$2"
 
   ## do visual effects
   # shellcheck disable=SC2154
-  if [[ -n "$effect" ]] ; then
+  if [[ -n "$effect" ]]; then
     image_effect "$2" "$effect"
   fi
   ## add small watermarks in the corners
@@ -471,54 +471,79 @@ image_modify() {
 text_resolve() {
   case $image_source in
   unsplash)
-    echo "$1" \
-    | sed "s|{copyright}|Photo by {photographer} on Unsplash.com|" \
-    | sed "s|{copyright2}|© {photographer} » Unsplash.com|" \
-    | sed "s|{photographer}|$photographer|" \
-    | sed "s|{url}|$url|" \
-    | sed "s|https://||"
+    echo "$1" |
+      sed "s|{copyright}|Photo by {photographer} on Unsplash.com|" |
+      sed "s|{copyright2}|© {photographer} » Unsplash.com|" |
+      sed "s|{photographer}|$photographer|" |
+      sed "s|{url}|$url|" |
+      sed "s|https://||"
     ;;
   pixabay)
-    echo "$1" \
-    | sed "s|{copyright}|Photo by {photographer} on Pixabay.com|" \
-    | sed "s|{copyright2}|© {photographer} » Pixabay.com|" \
-    | sed "s|{photographer}|$photographer|" \
-    | sed "s|{url}|$url|" \
-    | sed "s|https://||"
+    echo "$1" |
+      sed "s|{copyright}|Photo by {photographer} on Pixabay.com|" |
+      sed "s|{copyright2}|© {photographer} » Pixabay.com|" |
+      sed "s|{photographer}|$photographer|" |
+      sed "s|{url}|$url|" |
+      sed "s|https://||"
     ;;
-    *)
-    echo "$1" \
-    | sed "s|{copyright}| |" \
-    | sed "s|{copyright2}| |" \
-    | sed "s|{photographer}| |" \
-    | sed "s|{url}| |" \
-    | sed "s|https://||"
+  *)
+    echo "$1" |
+      sed "s|{copyright}| |" |
+      sed "s|{copyright2}| |" |
+      sed "s|{photographer}| |" |
+      sed "s|{url}| |" |
+      sed "s|https://||"
+    ;;
   esac
 }
 
-image_effect(){
+rescale_weight(){
+  local percent="$1"
+  local percent0="$2"
+  local percent100="$3"
+  local rescaled
+  if [[ "${4:-int}" == "float" ]] ; then
+    rescaled=$(awk "BEGIN {print $percent0 + ( $percent100 - $percent0 ) * $percent / 100 }")
+  else
+    rescaled=$(( percent0 + ( percent100 - percent0 ) * percent / 100 ))
+  fi
+  debug "Rescaled: $percent => $rescaled"
+  echo "$rescaled"
+}
+
+image_effect() {
   # $1 = image path
   # $2 = effect name
   # shellcheck disable=SC2154
   [[ ! -f "$1" ]] && return 1
   require_binary mogrify imagemagick
 
-  for fx1 in $(echo "$effect" | tr ',' "\n") ; do
-    debug "EFX : $fx1"
+  for fx1 in $(echo "$effect" | tr ',' "\n"); do
+    debug "Effect : $fx1"
+    # shellcheck disable=SC2001
+    percent="$(echo "$fx1" | sed 's/[^0-9]//g')"
+    percent="${percent:-20}"
+    debug "Weight : $percent %"
     case "$fx1" in
-    blur)             mogrify -blur 5x5 "$1"  ;;
-    dark|darken)      mogrify -fill black -colorize 25% "$1" ;;
-    grain)            mogrify -attenuate .95 +noise Gaussian "$1" ;;
-    light|lighten)    mogrify -fill white -colorize 25% "$1"  ;;
-    median)           mogrify -median 5 "$1"  ;;
-    monochrome|bw)    mogrify -modulate 100,1 "$1"  ;;
-    norm|normalize)   mogrify -normalize "$1" ;;
-    paint)            mogrify -paint 5  "$1"  ;;
-    pixel)            mogrify -resize 10% -scale 1000%  "$1"  ;;
-    sketch)           mogrify -sketch 5x5+45  "$1"  ;;
+    blur*)      weight=$(rescale_weight "$percent" 0 50);  mogrify -blur "${weight:-5}x${weight:-5}" "$1" ;;
+    bw)         mogrify -modulate 100,0,100 "$1" ;;
+    dark*)      weight=$(rescale_weight "$percent" 0 100); mogrify -fill black -colorize "${weight}%" "$1" ;;
+    desat*)     weight=$(rescale_weight "$percent" 100 0); mogrify -modulate "100,$weight,100" "$1" ;;
+    grain*)     weight=$(rescale_weight "$percent" 0 2 float); mogrify -attenuate "${weight}" +noise Gaussian "$1" ;;
+    light*)     weight=$(rescale_weight "$percent" 0 100); mogrify -fill white -colorize "${weight}%" "$1" ;;
+    median*)    weight=$(rescale_weight "$percent" 0 10); mogrify -median "${weight}" "$1" ;;
+    monochrome) mogrify -modulate 100,0,100 "$1" ;;
+    noise*)     weight=$(rescale_weight "$percent" 0 2 float); mogrify -attenuate "${weight}" +noise Gaussian "$1" ;;
+    norm)       mogrify -normalize "$1" ;;
+    normalize)  mogrify -normalize "$1" ;;
+    paint*)     weight=$(rescale_weight "$percent" 0 10); mogrify -paint "${weight}" "$1" ;;
+    pixel*)     shrink=$(awk "BEGIN {print int(250/$percent) }"); expand=$(awk "BEGIN {print int(10000/$shrink) }"); mogrify -resize "${shrink}%" -scale "${expand}%" "$1" ;;
+    sketch*)    weight=$(rescale_weight "$percent" 0 10);  mogrify -sketch "${weight}x${weight}+45" "$1" ;;
+    vignette*)  weight=$(rescale_weight "$percent" 200 20);  large=$(rescale_weight "$percent" 100 0); mogrify -background black -vignette "0x${weight}-${large}-${large}"  "$1" ;;
     *)
       # shellcheck disable=SC2086
       eval mogrify $effect "$1"
+      ;;
     esac
   done
 }
@@ -535,9 +560,11 @@ image_watermark() {
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
   9 | A | B | C | D | E | F)
-    shadow_color="0008" ;;
+    shadow_color="0008"
+    ;;
   *)
-    shadow_color="FFF8" ;;
+    shadow_color="FFF8"
+    ;;
   esac
   text=$(text_resolve "$3")
 
@@ -546,15 +573,15 @@ image_watermark() {
   margin2=$((margin + 1))
   # shellcheck disable=SC2154
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
-  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor"    -annotate "0x0+${margin}+${margin}"   "$text" "$1"
+  mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor" -annotate "0x0+${margin}+${margin}" "$text" "$1"
 }
 
-choose_position(){
+choose_position() {
   position="$1"
   # shellcheck disable=SC2154
   case $(lower_case "$gravity") in
-    left|west)  position="${position}West" ;;
-    right|east) position="${position}East" ;;
+  left | west) position="${position}West" ;;
+  right | east) position="${position}East" ;;
   esac
   [[ -z "$position" ]] && position="Center"
   echo "$position"
@@ -568,40 +595,42 @@ image_title() {
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
   9 | A | B | C | D | E | F)
-    shadow_color="0008" ;;
+    shadow_color="0008"
+    ;;
   *)
-    shadow_color="FFF8" ;;
+    shadow_color="FFF8"
+    ;;
   esac
   margin1=$((margin * 3))
   margin2=$((margin1 + 1))
-  if [[ -n "$title" ]] ; then
+  if [[ -n "$title" ]]; then
     text=$(text_resolve "$title")
     position=""
     [[ -n "$subtitle" ]] && position="North"
     position=$(choose_position "$position")
     debug "MARK: title [$text] in $position ..."
     # shellcheck disable=SC2154
-    if [[ $(lower_case "$gravity") == "center" ]] ; then
+    if [[ $(lower_case "$gravity") == "center" ]]; then
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
-      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor"    -annotate "0x0+0+${margin1}"  "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor" -annotate "0x0+0+${margin1}" "$text" "$1"
     else
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
-      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor"    -annotate "0x0+${margin1}+${margin1}"   "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor" -annotate "0x0+${margin1}+${margin1}" "$text" "$1"
     fi
   fi
-  if [[ -n "$subtitle" ]] ; then
+  if [[ -n "$subtitle" ]]; then
     text=$(text_resolve "$subtitle")
     position=""
     [[ -n "$title" ]] && position="South"
     position=$(choose_position "$position")
     debug "MARK: subtitle [$text] in $position ..."
     # shellcheck disable=SC2154
-    if [[ $(lower_case "$gravity") == "center" ]] ; then
+    if [[ $(lower_case "$gravity") == "center" ]]; then
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
-      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor"    -annotate "0x0+0+${margin1}"  "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor" -annotate "0x0+0+${margin1}" "$text" "$1"
     else
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
-      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor"    -annotate "0x0+${margin1}+${margin1}"   "$text" "$1"
+      mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor" -annotate "0x0+${margin1}+${margin1}" "$text" "$1"
     fi
   fi
 }
@@ -673,12 +702,19 @@ initialise_output() {
   error_prefix="${col_red}>${col_reset}"
 }
 
-out() {     ((quiet)) && true || printf '%b\n' "$*"; }
-debug() {   if ((verbose)); then out "${col_ylw}# $* ${col_reset}" >&2; else true; fi; }
-die() {     out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2 ; tput bel ; safe_exit ; }
-alert() {   out "${col_red}${char_alrt}${col_reset}: $*" >&2 ; }
+out() { ((quiet)) && true || printf '%b\n' "$*"; }
+debug() { if ((verbose)); then out "${col_ylw}# $* ${col_reset}" >&2; else true; fi; }
+die() {
+  out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2
+  tput bel
+  safe_exit
+}
+alert() { out "${col_red}${char_alrt}${col_reset}: $*" >&2; }
 success() { out "${col_grn}${char_succ}${col_reset}  $*"; }
-announce() { out "${col_grn}${char_wait}${col_reset}  $*"; sleep 1 ; }
+announce() {
+  out "${col_grn}${char_wait}${col_reset}  $*"
+  sleep 1
+}
 progress() {
   ((quiet)) || (
     local screen_width
@@ -701,16 +737,16 @@ lower_case() { echo "$*" | tr '[:upper:]' '[:lower:]'; }
 upper_case() { echo "$*" | tr '[:lower:]' '[:upper:]'; }
 
 slugify() {
-    # slugify <input> <separator>
-    # slugify "Jack, Jill & Clémence LTD"      => jack-jill-clemence-ltd
-    # slugify "Jack, Jill & Clémence LTD" "_"  => jack_jill_clemence_ltd
-    separator="${2:-}"
-    [[ -z "$separator" ]] && separator="-"
-    # shellcheck disable=SC2020
-    echo "$1" |
-        tr '[:upper:]' '[:lower:]' |
-        tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
-        awk '{
+  # slugify <input> <separator>
+  # slugify "Jack, Jill & Clémence LTD"      => jack-jill-clemence-ltd
+  # slugify "Jack, Jill & Clémence LTD" "_"  => jack_jill_clemence_ltd
+  separator="${2:-}"
+  [[ -z "$separator" ]] && separator="-"
+  # shellcheck disable=SC2020
+  echo "$1" |
+    tr '[:upper:]' '[:lower:]' |
+    tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
+    awk '{
           gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_]/," ",$0);
           gsub(/^  */,"",$0);
           gsub(/  *$/,"",$0);
@@ -718,27 +754,27 @@ slugify() {
           gsub(/[^a-z0-9\-]/,"");
           print;
           }' |
-        sed "s/-/$separator/g"
+    sed "s/-/$separator/g"
 }
 
 title_case() {
-    # title_case <input> <separator>
-    # title_case "Jack, Jill & Clémence LTD"     => JackJillClemenceLtd
-    # title_case "Jack, Jill & Clémence LTD" "_" => Jack_Jill_Clemence_Ltd
-    separator="${2:-}"
-    # shellcheck disable=SC2020
-    echo "$1" |
-        tr '[:upper:]' '[:lower:]' |
-        tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
-        awk '{ gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_-]/," ",$0); print $0; }' |
-        awk '{
+  # title_case <input> <separator>
+  # title_case "Jack, Jill & Clémence LTD"     => JackJillClemenceLtd
+  # title_case "Jack, Jill & Clémence LTD" "_" => Jack_Jill_Clemence_Ltd
+  separator="${2:-}"
+  # shellcheck disable=SC2020
+  echo "$1" |
+    tr '[:upper:]' '[:lower:]' |
+    tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
+    awk '{ gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_-]/," ",$0); print $0; }' |
+    awk '{
           for (i=1; i<=NF; ++i) {
               $i = toupper(substr($i,1,1)) tolower(substr($i,2))
           };
           print $0;
           }' |
-        sed "s/ /$separator/g" |
-        cut -c1-50
+    sed "s/ /$separator/g" |
+    cut -c1-50
 }
 
 ### interactive
@@ -823,45 +859,45 @@ show_usage() {
   '
 }
 
-check_last_version(){
+check_last_version() {
   (
-  # shellcheck disable=SC2164
-  pushd "$script_install_folder" &> /dev/null
-  if [[ -d .git ]] ; then
-    local remote
-    remote="$(git remote -v | grep fetch | awk 'NR == 1 {print $2}')"
-    progress "Check for latest version - $remote"
-    git remote update &> /dev/null
-    if [[ $(git rev-list --count "HEAD...HEAD@{upstream}" 2>/dev/null) -gt 0 ]] ; then
-      out "There is a more recent update of this script - run <<$script_prefix update>> to update"
+    # shellcheck disable=SC2164
+    pushd "$script_install_folder" &>/dev/null
+    if [[ -d .git ]]; then
+      local remote
+      remote="$(git remote -v | grep fetch | awk 'NR == 1 {print $2}')"
+      progress "Check for latest version - $remote"
+      git remote update &>/dev/null
+      if [[ $(git rev-list --count "HEAD...HEAD@{upstream}" 2>/dev/null) -gt 0 ]]; then
+        out "There is a more recent update of this script - run <<$script_prefix update>> to update"
+      fi
     fi
-  fi
-  # shellcheck disable=SC2164
-  popd &> /dev/null
+    # shellcheck disable=SC2164
+    popd &>/dev/null
   )
 }
 
-update_script_to_latest(){
+update_script_to_latest() {
   # run in background to avoid problems with modifying a running interpreted script
   (
-  sleep 1
-  cd "$script_install_folder" && git pull
+    sleep 1
+    cd "$script_install_folder" && git pull
   ) &
 }
 
 show_tips() {
   ((sourced)) && return 0
   # shellcheck disable=SC2016
-  grep <"${BASH_SOURCE[0]}" -v '$0' \
-  | awk \
+  grep <"${BASH_SOURCE[0]}" -v '$0' |
+    awk \
       -v green="$col_grn" \
       -v yellow="$col_ylw" \
       -v reset="$col_reset" \
       '
       /TIP: /  {$1=""; gsub(/«/,green); gsub(/»/,reset); print "*" $0}
       /TIP:> / {$1=""; print " " yellow $0 reset}
-      ' \
-  | awk \
+      ' |
+    awk \
       -v script_basename="$script_basename" \
       -v script_prefix="$script_prefix" \
       '{
@@ -1066,21 +1102,21 @@ parse_options() {
   fi
 }
 
-require_binary(){
+require_binary() {
   binary="$1"
   path_binary=$(command -v "$binary" 2>/dev/null)
   [[ -n "$path_binary" ]] && debug "️$require_icon required [$binary] -> $path_binary" && return 0
   #
   words=$(echo "${2:-}" | wc -l)
   case $words in
-    0)  install_instructions="$install_package $1";;
-    1)  install_instructions="$install_package $2";;
-    *)  install_instructions="$2"
+  0) install_instructions="$install_package $1" ;;
+  1) install_instructions="$install_package $2" ;;
+  *) install_instructions="$2" ;;
   esac
   alert "$script_basename needs [$binary] but it cannot be found"
   alert "1) install package  : $install_instructions"
   alert "2) check path       : export PATH=\"[path of your binary]:\$PATH\""
-  die   "Missing program/script [$binary]"
+  die "Missing program/script [$binary]"
 }
 
 folder_prep() {
@@ -1127,7 +1163,7 @@ lookup_script_data() {
   debug "$info_icon Script path: $script_install_path"
   script_install_path=$(recursive_readlink "$script_install_path")
   debug "$info_icon Linked path: $script_install_path"
-  readonly script_install_folder="$( cd -P "$( dirname "$script_install_path" )" && pwd )"
+  readonly script_install_folder="$(cd -P "$(dirname "$script_install_path")" && pwd)"
   debug "$info_icon In folder  : $script_install_folder"
   if [[ -f "$script_install_path" ]]; then
     script_hash=$(hash <"$script_install_path" 8)
@@ -1245,11 +1281,11 @@ import_env_if_any() {
 initialise_output  # output settings
 lookup_script_data # find installation folder
 
-[[ $run_as_root == 1  ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
+[[ $run_as_root == 1 ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
 [[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && die "user is $USER, CANNOT be root to run [$script_basename]"
 
-init_options       # set default values for flags & options
-import_env_if_any  # overwrite with .env if any
+init_options      # set default values for flags & options
+import_env_if_any # overwrite with .env if any
 
 if [[ $sourced -eq 0 ]]; then
   parse_options "$@"    # overwrite with specified options if any
