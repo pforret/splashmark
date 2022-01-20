@@ -22,6 +22,7 @@ option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|Created with pforret/splashmark
 option|4|southeast|text to put in right bottom|{copyright2}
 option|d|randomize|take a random picture in the first N results|1
+option|D|number|take the Nth picture from query results|1
 option|e|effect|use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel|
 option|g|gravity|title alignment left/center/right|center
 option|i|title|big text to put in center|
@@ -235,15 +236,25 @@ search_images_unsplash() {
   # $1 = keyword(s)
   # returns first result
   # shellcheck disable=SC2154
-  if [[ "$randomize" == 1 ]]; then
-    cached_unsplash_api "/search/photos/?query=$1" ".results[0].id"
-  else
+  if [[ "$randomize" -gt 1 ]]; then
+    # pick random in 1st N results
     choose_from=$(cached_unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
     debug "PICK: $choose_from results in query"
     [[ $choose_from -gt $randomize ]] && choose_from=$randomize
     chosen=$((RANDOM % choose_from))
     debug "PICK: photo $chosen from first $choose_from results"
     cached_unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
+  elif [[ "$number" -gt 1 ]]; then
+    # take Nth result
+    choose_from=$(cached_unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
+    debug "PICK: $choose_from results in query"
+    [[ $choose_from -lt $number ]] && number=$choose_from
+    chosen=$((number - 1))
+    debug "PICK: photo $number from results"
+    cached_unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
+  else
+    # take first photo
+    cached_unsplash_api "/search/photos/?query=$1" ".results[0].id"
   fi
 }
 
