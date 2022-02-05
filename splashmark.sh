@@ -100,7 +100,7 @@ main() {
       ### Unsplash URL: download one photo
       photo_id=$(basename "${input//-//}")
       # shellcheck disable=SC2154
-      [[ -z "${output:-}" ]] && output="$photo_id.jpg"
+      [[ -z "${output:-}" ]] && output="pixabay.$photo_id.jpg"
     else
       ### search for terms
       photo_id=$(search_images_pixabay "$input")
@@ -123,6 +123,10 @@ main() {
     #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
     image_source="file"
     [[ ! -f "$input" ]] && die "Cannot find input file [$input]"
+    name=$(basename "$input" .jpg | cut -c1-8)
+    hash=$(echo "$input" | hash 6)
+    [[ -z "${output:-}" ]] && output="file.$name.$hash.jpg"
+    debug "Process local image"
     image_modify "$input" "$output"
     out "$output"
     ;;
@@ -132,8 +136,13 @@ main() {
     #TIP:> splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
     #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url "https://i.imgur.com/rbXZcVH.jpg" waterfall.jpg
     image_source="url"
+    debug "Download URL"
     image_file=$(download_image_from_url "$input")
     [[ ! -f "$image_file" ]] && die "Cannot download input image [$input]"
+    name=$(basename "$image_file" .jpg | cut -c1-8)
+    hash=$(echo "$url" | hash 6)
+    [[ -z "${output:-}" ]] && output="url.$name.$hash.jpg"
+    debug "Process cached image [$image_file] -> [$output]"
     image_modify "$image_file" "$output"
     out "$output"
     ;;
@@ -221,6 +230,7 @@ download_image_unsplash() {
   # returns path of downloaded file
   photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
   image_url=$(cached_unsplash_api "/photos/$photo_id" .urls.regular)
+  # shellcheck disable=SC2154
   cached_image="$tmp_dir/$photo_id.jpg"
   if [[ ! -f "$cached_image" ]]; then
     debug "IMG = [$image_url]"
@@ -349,7 +359,7 @@ download_image_from_url() {
   [[ "$1" =~ .png ]] && extension="png"
   [[ "$1" =~ .gif ]] && extension="gif"
   uniq=$(echo "$1" | hash 8)
-  cached_image="$tmp_dir/image.$uniq.$extension"
+  cached_image="$tmp_dir/download.$uniq.$extension"
   if [[ ! -f "$cached_image" ]]; then
     debug "IMG = [$1]"
     curl -s -o "$cached_image" "$1"
@@ -427,6 +437,7 @@ image_modify() {
   # $2 = output file
 
   require_binary convert imagemagick
+  local font_list
 
   font_list="$tmp_dir/magick.fonts.txt"
   if [[ ! -f "$font_list" ]]; then
@@ -454,11 +465,13 @@ image_modify() {
     convert "$1" -gravity Center -resize "${width}"x -quality 95% "$2"
   fi
   ## set EXIF/IPTC tags
+  debug "set_metadata_tags"
   set_metadata_tags "$image_source" "$2"
 
   ## do visual effects
   # shellcheck disable=SC2154
   if [[ -n "$effect" ]]; then
+    debug "image_effect"
     image_effect "$2" "$effect"
   fi
   ## add small watermarks in the corners
@@ -564,6 +577,7 @@ image_watermark() {
   [[ ! -f "$1" ]] && return 1
   require_binary mogrify imagemagick
 
+  debug "image_watermark $3"
   # shellcheck disable=SC2154
   char1=$(upper_case "${fontcolor:0:1}")
   case $char1 in
