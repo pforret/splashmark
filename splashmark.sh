@@ -17,6 +17,8 @@ option|l|log_dir|folder for log files |$HOME/log/$script_prefix
 option|t|tmp_dir|folder for temp files|/tmp/$script_prefix
 option|w|width|image width for resizing|1200
 option|c|crop|image height for cropping|0
+option|s|preset|image size preset
+option|S|resize|multiply preset with factor
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|Created with pforret/splashmark
@@ -38,7 +40,7 @@ option|u|url|photo URL override (empty: use URL from API)|
 
 option|P|PIXABAY_ACCESSKEY|Pixabay access key|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
-choice|1|action|action to perform|unsplash,file,url,check,env,update
+choice|1|action|action to perform|unsplash,file,url,sizes,check,env,update
 param|?|input|URL or search term
 param|?|output|output file
 " -v -e '^#' -e '^\s*$'
@@ -150,6 +152,13 @@ url | u)
   IO:debug "Process cached image [$image_file] -> [$output]"
   Img:modify "$image_file" "$output"
   IO:print "$output"
+  ;;
+
+sizes)
+  Img:list_sizes \
+  | awk -F '|' '
+  {printf ("%-20s WxH: %4d x %4d\n", $1, $2, $3)}
+  '
   ;;
 
 check | env)
@@ -464,8 +473,21 @@ function Img:modify() {
   [[ ! -f "$1" ]] && return 1
 
   ## scale and crop
+  local list_title list_width list_height
+  if [[ -n "$preset" ]] ; then
+    if [[ $(Img:list_sizes | grep -c "$preset") == 1 ]] ; then
+      width="$(Img:list_sizes | grep "$preset" | cut -d'|' -f2)"
+      crop="$(Img:list_sizes | grep "$preset" | cut -d'|' -f3)"
+      IO:debug "Dimensions are now: $width x $crop ($preset)"
+    fi
+    if [[ -n "$resize" ]] ; then
+      width=$(Tool:calc "$width * $resize")
+      crop=$(Tool:calc "$crop * $resize")
+      IO:debug "Dimensions are now: $width x $crop (resize x$resize)"
+    fi
+  fi
   # shellcheck disable=SC2154
-  if [[ $crop -gt 0 ]]; then
+  if [[ "$crop" -gt 0 ]]; then
     IO:debug "CROP: image to $width x $crop --> $2"
     convert "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
   else
@@ -527,7 +549,7 @@ function text_resolve() {
   esac
 }
 
-rescale_weight(){
+function rescale_weight(){
   local percent="$1"
   local percent0="$2"
   local percent100="$3"
@@ -541,7 +563,7 @@ rescale_weight(){
   echo "$rescaled"
 }
 
-Img:effect() {
+function Img:effect() {
   # $1 = image path
   # $2 = effect name
   # shellcheck disable=SC2154
@@ -584,7 +606,7 @@ Img:effect() {
   done
 }
 
-Img:watermark() {
+function Img:watermark() {
   # $1 = image path
   # $2 = gravity
   # $3 = text
@@ -613,7 +635,7 @@ Img:watermark() {
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor" -annotate "0x0+${margin}+${margin}" "$text" "$1"
 }
 
-choose_position() {
+function choose_position() {
   position="$1"
   # shellcheck disable=SC2154
   case ${gravity,,} in
@@ -624,7 +646,7 @@ choose_position() {
   echo "$position"
 }
 
-Img:title() {
+function Img:title() {
   # $1 = image path
 
   [[ ! -f "$1" ]] && return 1
@@ -673,7 +695,28 @@ Img:title() {
   fi
 }
 
-
+function Img:list_sizes(){
+  cat <<END
+cinema:flat|1998|1080
+cinema:hd|1920|1080
+cinema:scope|2048|858
+facebook:cover|851|315
+facebook:horizontal|1200|630
+facebook:story|1080|1920
+facebook:vertical|1080|1350
+github:repo|1280|640
+instagram:horizontal|1350|1080
+instagram:square|1080|1080
+instagram:story|1080|1920
+instagram:vertical|1080|1350
+linkedin:horizontal|1104|736
+medium:horizontal|1500|1200
+pinterest:vertical|1000|1500
+tumblr:vertical|1280|1920
+twitter:header|1500|500
+twitter:post|1024|512
+END
+}
 #####################################################################
 ################### DO NOT MODIFY BELOW THIS LINE ###################
 #####################################################################
