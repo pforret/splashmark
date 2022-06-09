@@ -16,58 +16,58 @@ root_folder=$(cd .. && pwd) # tests/.. is root folder
 root_script=$(find "$root_folder" -maxdepth 1 -name "*.sh" | head -1) # normally there should be only 1
 
 test_usage_effect_blur() {
-  assert "$root_script -e blur   unsplash apple test.jpg"
-  assert "$root_script -e blur50 unsplash apple test.jpg"
+  assert "$root_script -e blur   file images/square.jpg test.jpg"
+  assert "$root_script -e blur50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_dark() {
-  assert "$root_script -e dark   unsplash apple test.jpg"
-  assert "$root_script -e dark50 unsplash apple test.jpg"
+  assert "$root_script -e dark   file images/square.jpg test.jpg"
+  assert "$root_script -e dark50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_desat() {
-  assert "$root_script -e desat   unsplash apple test.jpg"
-  assert "$root_script -e desat50 unsplash apple test.jpg"
+  assert "$root_script -e desat   file images/square.jpg test.jpg"
+  assert "$root_script -e desat50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_grain() {
-  assert "$root_script -e grain   unsplash apple test.jpg"
-  assert "$root_script -e grain50 unsplash apple test.jpg"
+  assert "$root_script -e grain   file images/square.jpg test.jpg"
+  assert "$root_script -e grain50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_light() {
-  assert "$root_script -e light   unsplash apple test.jpg"
-  assert "$root_script -e light50 unsplash apple test.jpg"
+  assert "$root_script -e light   file images/square.jpg test.jpg"
+  assert "$root_script -e light50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_median() {
-  assert "$root_script -e median   unsplash apple test.jpg"
-  assert "$root_script -e median50 unsplash apple test.jpg"
+  assert "$root_script -e median   file images/square.jpg test.jpg"
+  assert "$root_script -e median50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_monochrome() {
-  assert "$root_script -e monochrome   unsplash apple test.jpg"
-  assert "$root_script -e bw           unsplash apple test.jpg"
+  assert "$root_script -e monochrome   file images/square.jpg test.jpg"
+  assert "$root_script -e bw           file images/square.jpg test.jpg"
 }
 
 test_usage_effect_paint() {
-  assert "$root_script -e paint   unsplash apple test.jpg"
-  assert "$root_script -e paint50 unsplash apple test.jpg"
+  assert "$root_script -e paint   file images/square.jpg test.jpg"
+  assert "$root_script -e paint50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_pixel() {
-  assert "$root_script -e pixel   unsplash apple test.jpg"
-  assert "$root_script -e pixel50 unsplash apple test.jpg"
+  assert "$root_script -e pixel   file images/square.jpg test.jpg"
+  assert "$root_script -e pixel50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_sketch() {
-  assert "$root_script -e sketch   unsplash apple test.jpg"
-  assert "$root_script -e sketch50 unsplash apple test.jpg"
+  assert "$root_script -e sketch   file images/square.jpg test.jpg"
+  assert "$root_script -e sketch50 file images/square.jpg test.jpg"
 }
 
 test_usage_effect_vignette() {
-  assert "$root_script -e vignette   unsplash apple test.jpg"
-  assert "$root_script -e vignette50 unsplash apple test.jpg"
+  assert "$root_script -e vignette   file images/square.jpg test.jpg"
+  assert "$root_script -e vignette50 file images/square.jpg test.jpg"
   rm -f test.jpg
 }
 
