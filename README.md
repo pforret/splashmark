@@ -189,9 +189,29 @@ example.jpg
 ## Examples
 check [EXAMPLES.md](https://github.com/pforret/splashmark/blob/master/EXAMPLES.md)
 
+## Size presets
 
-## Common image sizes
-* [facebook-profile-picture-size-and-more](https://www.godaddy.com/garage/facebook-profile-picture-size-and-more/)
+```bash
+$ splashmark sizes
+cinema:flat          WxH: 1998 x 1080
+cinema:hd            WxH: 1920 x 1080
+cinema:scope         WxH: 2048 x  858
+facebook:cover       WxH:  851 x  315
+facebook:horizontal  WxH: 1200 x  630
+facebook:story       WxH: 1080 x 1920
+facebook:vertical    WxH: 1080 x 1350
+github:repo          WxH: 1280 x  640
+instagram:horizontal WxH: 1350 x 1080
+instagram:square     WxH: 1080 x 1080
+instagram:story      WxH: 1080 x 1920
+instagram:vertical   WxH: 1080 x 1350
+linkedin:horizontal  WxH: 1104 x  736
+medium:horizontal    WxH: 1500 x 1200
+pinterest:vertical   WxH: 1000 x 1500
+tumblr:vertical      WxH: 1280 x 1920
+twitter:header       WxH: 1500 x  500
+twitter:post         WxH: 1024 x  512
+```
 ---
 
 &copy; 2020 [Peter Forret](https://github.com/pforret)
