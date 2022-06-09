@@ -25,3 +25,13 @@ test_usage_shows_option_verbose() {
   assert_equals 1 "$("$root_script" 2>&1 | grep -c "Usage")"
   assert_equals 1 "$("$root_script" 2>&1 | grep -c "verbose")"
 }
+
+test_env_generates_env_file() {
+  # script without parameters should show option -v or --verbose
+  assert_equals 1 "$("$root_script" env 2>&1 | grep -c "UNSPLASH_ACCESSKEY=")"
+}
+
+test_check_generates_env_file() {
+  # script without parameters should show option -v or --verbose
+  assert_equals 1 "$("$root_script" check 2>&1 | grep -c "UNSPLASH_ACCESSKEY=")"
+}

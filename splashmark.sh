@@ -54,8 +54,6 @@ Script:main() {
   IO:log "[$script_basename] $script_version started"
   Os:require curl
 
-  local output
-
   # shellcheck disable=SC2154
   case "${action,,}" in
 unsplash)
@@ -128,12 +126,13 @@ file | f)
   #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
   image_source="file"
   [[ ! -f "$input" ]] && IO:die "Cannot find input file [$input]"
+  IO:debug "Input file : [$input]"
   local name
   local hash
   name=$(basename "$input" .jpg | cut -c1-8)
   hash=$(<<< "$input" Str:digest 6)
   [[ -z "${output:-}" ]] && output="file.$name.$hash.jpg"
-  IO:debug "Process local image"
+  IO:debug "Output file: [$output]"
   Img:modify "$input" "$output"
   IO:print "$output"
   ;;
@@ -167,7 +166,7 @@ check | env)
   #TIP:> $script_prefix check
   #TIP: use «$script_prefix env» to generate an example .env file
   #TIP:> $script_prefix env > .env
-  check_script_settings
+  Script:check
   ;;
 
 *)
