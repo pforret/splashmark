@@ -741,6 +741,7 @@ quiet=0
 function IO:initialize() {
   [[ "${BASH_SOURCE[0]:-}" != "${0}" ]] && sourced=1 || sourced=0
   [[ -t 1 ]] && piped=0 || piped=1 # detect if output is piped
+  [[ -z "${TERM:-}" ]] && TERM=xterm
   if [[ $piped -eq 0 ]]; then
     txtReset=$(tput sgr0)
     txtError=$(tput setaf 160)
