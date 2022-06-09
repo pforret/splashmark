@@ -795,7 +795,7 @@ function IO:debug() {
 
 function IO:die() {
   IO:print "${txtError}${char_fail} $script_basename${txtReset}: $*" >&2
-  tput bel
+  Os:beep
   Script:exit
 }
 
@@ -1425,7 +1425,7 @@ function Os:beep() {
   local type="${1=-info}"
   case $type in
   *)
-    tput bel
+    tput -Txterm bel
     ;;
   esac
 }
