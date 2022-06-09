@@ -40,7 +40,7 @@ option|u|url|photo URL override (empty: use URL from API)|
 
 option|P|PIXABAY_ACCESSKEY|Pixabay access key|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
-choice|1|action|action to perform|unsplash,file,url,sizes,check,env,update
+choice|1|action|action to perform|unsplash,pixabay,file,url,sizes,check,env,update
 param|?|input|URL or search term
 param|?|output|output file
 " -v -e '^#' -e '^\s*$'
@@ -61,7 +61,7 @@ unsplash)
   #TIP:> splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
   #TIP:> splashmark unsplash rose rose.jpg
   #TIP:> splashmark unsplash rose   (will generate unsplash.rose.jpg)
-  [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] && IO:die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+  [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] && IO:die "You need valid UNSPLASH_ACCESSKEY in .env - please copy this from https://unsplash.com/oauth/applications"
   image_source="unsplash"
   # shellcheck disable=SC2154
   [[ -z "$input" ]] && IO:die "Need URL or search term to find an Unsplash photo"
@@ -94,7 +94,7 @@ pixabay)
   #TIP:> splashmark pixabay "https://pixabay.com/photos/rose-flower-love-romance-beautiful-729509/" rose.jpg
   #TIP:> splashmark pixabay rose rose.jpg
   #TIP:> splashmark pixabay rose   (will generate pixabay.rose.jpg)
-  [[ -z "${PIXABAY_ACCESSKEY:-}" ]] && IO:die "You need valid Pixabay API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
+  [[ -z "${PIXABAY_ACCESSKEY:-}" ]] && IO:die "You need valid PIXABAY_ACCESSKEY in .env - please copy this from https://pixabay.com/api/docs/"
   image_source="pixabay"
   # shellcheck disable=SC2154
   [[ -z "$input" ]] && IO:die "Need URL or search term to find an Pixabay photo"
