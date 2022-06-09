@@ -472,13 +472,14 @@ function Img:modify() {
   [[ ! -f "$1" ]] && return 1
 
   ## scale and crop
-  local list_title list_width list_height
+  # shellcheck disable=SC2154
   if [[ -n "$preset" ]] ; then
     if [[ $(Img:list_sizes | grep -c "$preset") == 1 ]] ; then
       width="$(Img:list_sizes | grep "$preset" | cut -d'|' -f2)"
       crop="$(Img:list_sizes | grep "$preset" | cut -d'|' -f3)"
       IO:debug "Dimensions are now: $width x $crop ($preset)"
     fi
+    # shellcheck disable=SC2154
     if [[ -n "$resize" ]] ; then
       width=$(Tool:calc "$width * $resize")
       crop=$(Tool:calc "$crop * $resize")
