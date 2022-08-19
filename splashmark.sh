@@ -399,7 +399,7 @@ set_metadata_tags() {
   #  Supplemental Categories         : OtherCategories
   #  Urgency                         : 1 (most urgent)
   #  Writer-Editor                   : Caption Writer
-  set_exif "$2" "Writer-Editor" "https://github.com/pforret/splashmark"
+  set_exif "$2" "Writer-Editor" "pforret/splashmark"
   if [[ "$1" == "unsplash" ]]; then
     ## metadata comes from Unsplash/Pixabay
     if [[ -f "$2" && -n ${photographer} ]]; then
