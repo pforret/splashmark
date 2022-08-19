@@ -3,11 +3,11 @@
 script_version="0.0.0" # if there is a VERSION.md in this script's folder, it will take priority for version number
 readonly script_author="peter@forret.com"
 readonly script_created="2020-09-28"
+readonly script_description="Mark up images (unspash/pixabay/URL) with titles, effects and resize"
 readonly run_as_root=-1 # run_as_root: 0 = don't check anything / 1 = script MUST run as root / -1 = script MAY NOT run as root
 
-list_options() {
-  force=0
-  echo -n "
+function Option:config() {
+  grep <<<"
 #commented lines will be filtered
 flag|h|help|show usage
 flag|q|quiet|no output
@@ -17,6 +17,8 @@ option|l|log_dir|folder for log files |$HOME/log/$script_prefix
 option|t|tmp_dir|folder for temp files|/tmp/$script_prefix
 option|w|width|image width for resizing|1200
 option|c|crop|image height for cropping|0
+option|s|preset|image size preset
+option|S|resize|multiply preset with factor
 option|1|northwest|text to put in left top|
 option|2|northeast|text to put in right top|{url}
 option|3|southwest|text to put in left bottom|Created with pforret/splashmark
@@ -38,119 +40,139 @@ option|u|url|photo URL override (empty: use URL from API)|
 
 option|P|PIXABAY_ACCESSKEY|Pixabay access key|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
-
-param|1|action|action to perform: unsplash/file/url
+choice|1|action|action to perform|unsplash,pixabay,file,url,sizes,check,env,update
 param|?|input|URL or search term
 param|?|output|output file
-" | grep -v '^#' | grep -v '^\s*$'
+" -v -e '^#' -e '^\s*$'
 }
 
 #####################################################################
 ## Put your main script here
 #####################################################################
 
-main() {
-  log_to_file "[$script_basename] $script_version started"
-  require_binary curl
+Script:main() {
+  IO:log "[$script_basename] $script_version started"
+  Os:require curl
 
-  action=$(lower_case "$action")
-  case $action in
-  unsplash)
-    #TIP: use «splashmark unsplash» to download or search a Unsplash photo (requires free Unsplash API key)
-    #TIP:> splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
-    #TIP:> splashmark unsplash rose rose.jpg
-    #TIP:> splashmark unsplash rose   (will generate unsplash.rose.jpg)
-    [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] && die "You need valid Unsplash API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
-    image_source="unsplash"
+  # shellcheck disable=SC2154
+  case "${action,,}" in
+unsplash)
+  #TIP: use «splashmark unsplash» to download or search a Unsplash photo (requires free Unsplash API key)
+  #TIP:> splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
+  #TIP:> splashmark unsplash rose rose.jpg
+  #TIP:> splashmark unsplash rose   (will generate unsplash.rose.jpg)
+  [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] && IO:die "You need valid UNSPLASH_ACCESSKEY in .env - please copy this from https://unsplash.com/oauth/applications"
+  image_source="unsplash"
+  # shellcheck disable=SC2154
+  [[ -z "$input" ]] && IO:die "Need URL or search term to find an Unsplash photo"
+  if [[ "$input" == *"://"* ]]; then
+    [[ ! "$input" == *"://unsplash.com"* ]] && IO:die "[$input] is not a unsplash.com URL"
+    ### Unsplash URL: download one photo
+    photo_id=$(basename "$input")
     # shellcheck disable=SC2154
-    [[ -z "$input" ]] && die "Need URL or search term to find an Unsplash photo"
-    if [[ "$input" == *"://"* ]]; then
-      [[ ! "$input" == *"://unsplash.com"* ]] && die "[$input] is not a unsplash.com URL"
-      ### Unsplash URL: download one photo
-      photo_id=$(basename "$input")
-      # shellcheck disable=SC2154
-      [[ -z "${output:-}" ]] && output="unsplash.$photo_id.jpg"
-    else
-      ### search for terms
-      photo_id=$(search_images_unsplash "$input")
-      photo_slug=$(slugify "$input")
-      [[ -z "${output:-}" ]] && output="unsplash.$photo_slug.jpg"
-    fi
-    debug "Output file: [$output]"
-    if [[ -n "$photo_id" ]]; then
-      debug "Unsplash photo ID = [$photo_id]"
-      image_file=$(download_image_unsplash "$photo_id")
-      download_metadata_unsplash "$photo_id"
-      image_modify "$image_file" "$output"
-      out "$output"
-    fi
-    ;;
+    [[ -z "${output:-}" ]] && output="unsplash.$photo_id.jpg"
+  else
+    ### search for terms
+    photo_id=$(unsplash:search "$input")
+    local photo_slug
+    photo_slug=$(Str:slugify "$input")
+    [[ -z "${output:-}" ]] && output="unsplash.$photo_slug.jpg"
+  fi
+  IO:debug "Output file: [$output]"
+  if [[ -n "$photo_id" ]]; then
+    IO:debug "Unsplash photo ID = [$photo_id]"
+    local image_file
+    image_file=$(unsplash:download "$photo_id")
+    unsplash:metadata "$photo_id"
+    Img:modify "$image_file" "$output"
+    IO:print "$output"
+  fi
+  ;;
 
-  pixabay)
-    #TIP: use «splashmark pixabay» to download or search a Pixabay photo (requires free Pixabay API key)
-    #TIP:> splashmark pixabay "https://pixabay.com/photos/rose-flower-love-romance-beautiful-729509/" rose.jpg
-    #TIP:> splashmark pixabay rose rose.jpg
-    #TIP:> splashmark pixabay rose   (will generate pixabay.rose.jpg)
-    [[ -z "${PIXABAY_ACCESSKEY:-}" ]] && die "You need valid Pixabay API keys in .env - please create and copy them from https://unsplash.com/oauth/applications"
-    image_source="pixabay"
+pixabay)
+  #TIP: use «splashmark pixabay» to download or search a Pixabay photo (requires free Pixabay API key)
+  #TIP:> splashmark pixabay "https://pixabay.com/photos/rose-flower-love-romance-beautiful-729509/" rose.jpg
+  #TIP:> splashmark pixabay rose rose.jpg
+  #TIP:> splashmark pixabay rose   (will generate pixabay.rose.jpg)
+  [[ -z "${PIXABAY_ACCESSKEY:-}" ]] && IO:die "You need valid PIXABAY_ACCESSKEY in .env - please copy this from https://pixabay.com/api/docs/"
+  image_source="pixabay"
+  # shellcheck disable=SC2154
+  [[ -z "$input" ]] && IO:die "Need URL or search term to find an Pixabay photo"
+  if [[ "$input" == *"://"* ]]; then
+    [[ ! "$input" == *"://pixabay.com"* ]] && IO:die "[$input] is not a pixabay.com URL"
+    ### Unsplash URL: download one photo
+    photo_id=$(basename "${input//-//}")
     # shellcheck disable=SC2154
-    [[ -z "$input" ]] && die "Need URL or search term to find an Pixabay photo"
-    if [[ "$input" == *"://"* ]]; then
-      [[ ! "$input" == *"://pixabay.com"* ]] && die "[$input] is not a pixabay.com URL"
-      ### Unsplash URL: download one photo
-      photo_id=$(basename "${input//-//}")
-      # shellcheck disable=SC2154
-      [[ -z "${output:-}" ]] && output="$photo_id.jpg"
-    else
-      ### search for terms
-      photo_id=$(search_images_pixabay "$input")
-      photo_slug=$(slugify "$input")
-      [[ -z "${output:-}" ]] && output="pixabay.$photo_slug.jpg"
-    fi
-    debug "Output file: [$output]"
-    if [[ -n "$photo_id" ]]; then
-      debug "Pixabay photo ID = [$photo_id]"
-      image_file=$(download_image_pixabay "$photo_id")
-      download_metadata_pixabay "$photo_id"
-      image_modify "$image_file" "$output"
-      out "$output"
-    fi
-    ;;
+    [[ -z "${output:-}" ]] && output="pixabay.$photo_id.jpg"
+  else
+    ### search for terms
+    photo_id=$(pixabay:search "$input")
+    photo_slug=$(Str:slugify "$input")
+    [[ -z "${output:-}" ]] && output="pixabay.$photo_slug.jpg"
+  fi
+  IO:debug "Output file: [$output]"
+  if [[ -n "$photo_id" ]]; then
+    IO:debug "Pixabay photo ID = [$photo_id]"
+    image_file=$(pixabay:download "$photo_id")
+    pixabay:metadata "$photo_id"
+    Img:modify "$image_file" "$output"
+    IO:print "$output"
+  fi
+  ;;
 
-  file | f)
-    #TIP: use «splashmark file» to add texts and effects to a existing image
-    #TIP:> splashmark file waterfall.jpg sources/original.jpg
-    #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
-    image_source="file"
-    [[ ! -f "$input" ]] && die "Cannot find input file [$input]"
-    image_modify "$input" "$output"
-    out "$output"
-    ;;
+file | f)
+  #TIP: use «splashmark file» to add texts and effects to a existing image
+  #TIP:> splashmark file waterfall.jpg sources/original.jpg
+  #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
+  image_source="file"
+  [[ ! -f "$input" ]] && IO:die "Cannot find input file [$input]"
+  IO:debug "Input file : [$input]"
+  local name
+  local hash
+  name=$(basename "$input" .jpg | cut -c1-8)
+  hash=$(<<< "$input" Str:digest 6)
+  [[ -z "${output:-}" ]] && output="file.$name.$hash.jpg"
+  IO:debug "Output file: [$output]"
+  Img:modify "$input" "$output"
+  IO:print "$output"
+  ;;
 
-  url | u)
-    #TIP: use «splashmark url» to add texts and effects to a image that will be downloaded from a URL
-    #TIP:> splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
-    #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url "https://i.imgur.com/rbXZcVH.jpg" waterfall.jpg
-    image_source="url"
-    image_file=$(download_image_from_url "$input")
-    [[ ! -f "$image_file" ]] && die "Cannot download input image [$input]"
-    image_modify "$image_file" "$output"
-    out "$output"
-    ;;
+url | u)
+  #TIP: use «splashmark url» to add texts and effects to a image that will be downloaded from a URL
+  #TIP:> splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
+  #TIP:> splashmark -w 1280 -c 640 -4 "Photographer: John Doe" -e dark,median,grain url "https://i.imgur.com/rbXZcVH.jpg" waterfall.jpg
+  image_source="url"
+  IO:debug "Download URL"
+  image_file=$(Img:download "$input")
+  [[ ! -f "$image_file" ]] && IO:die "Cannot download input image [$input]"
+  name=$(basename "$image_file" .jpg | cut -c1-8)
+  hash=$(echo "$url" | Str:digest 6)
+  [[ -z "${output:-}" ]] && output="url.$name.$hash.jpg"
+  IO:debug "Process cached image [$image_file] -> [$output]"
+  Img:modify "$image_file" "$output"
+  IO:print "$output"
+  ;;
 
-  check | env)
-    ## leave this default action, it will make it easier to test your script
-    #TIP: use «$script_prefix check» to check if this script is ready to execute and what values the options/flags are
-    #TIP:> $script_prefix check
-    #TIP: use «$script_prefix env» to generate an example .env file
-    #TIP:> $script_prefix env > .env
-    check_script_settings
-    ;;
+sizes)
+  Img:list_sizes \
+  | awk -F '|' '
+  {printf ("%-20s WxH: %4d x %4d\n", $1, $2, $3)}
+  '
+  ;;
 
-  *)
-    die "action [$action] not recognized"
-    ;;
-  esac
+check | env)
+  ## leave this default action, it will make it easier to test your script
+  #TIP: use «$script_prefix check» to check if this script is ready to execute and what values the options/flags are
+  #TIP:> $script_prefix check
+  #TIP: use «$script_prefix env» to generate an example .env file
+  #TIP:> $script_prefix env > .env
+  Script:check
+  ;;
+
+*)
+  IO:die "action [$action] not recognized"
+  ;;
+esac
 }
 
 #TIP: to create a social image for Github
@@ -166,10 +188,10 @@ main() {
 
 ### Unsplash API stuff
 
-cached_unsplash_api() {
+unsplash:api() {
   # $1 = relative API URL
   # $2 = jq query path
-  require_binary jq
+  Os:require jq
   local uniq
   local api_endpoint="https://api.unsplash.com"
   local full_url="$api_endpoint$1"
@@ -181,91 +203,92 @@ cached_unsplash_api() {
     # no querystring yet
     full_url="$full_url?client_id=$UNSPLASH_ACCESSKEY"
   fi
-  uniq=$(echo "$full_url" | hash 8)
+  uniq=$(echo "$full_url" | Str:digest 8)
   # shellcheck disable=SC2154
   local cached="$tmp_dir/unsplash.$uniq.json"
   if [[ ! -f "$cached" ]]; then
     # only get the data once
-    debug "Unsplash API = [$show_url]"
+    IO:debug "Unsplash API = [$show_url]"
     curl -s "$full_url" >"$cached"
     if [[ $(wc <"$cached" -c) -lt 10 ]]; then
       # remove if response is too small to be a valid answer
       rm "$cached"
-      alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
+      IO:alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
       return 1
     fi
     if grep -q "Rate Limit Exceeded" "$cached"; then
       # remove if response is API throttling starts
       rm "$cached"
-      alert "API call to [$1] was throttled - remember it's limited to 50 req/hr!"
+      IO:alert "API call to [$1] was throttled - remember it's limited to 50 req/hr!"
       return 2
     fi
   else
-    debug "API = [$cached]"
+    IO:debug "API = [$cached]"
   fi
   jq <"$cached" "${2:-.}" |
     sed 's/"//g' |
     sed 's/,$//'
 }
 
-download_metadata_unsplash() {
+unsplash:metadata() {
   # only get metadata if it was not yet specified as an option
-  [[ -z "${photographer:-}" ]] && photographer=$(cached_unsplash_api "/photos/$1" ".user.name")
-  [[ -z "${url:-}" ]] && url="$(cached_unsplash_api "/photos/$1" ".links.html")"
-  debug "META: Photographer: $photographer"
-  debug "META: URL: $url"
+  [[ -z "${photographer:-}" ]] && photographer=$(unsplash:api "/photos/$1" ".user.name")
+  [[ -z "${url:-}" ]] && url="$(unsplash:api "/photos/$1" ".links.html")"
+  IO:debug "META: Photographer: $photographer"
+  IO:debug "META: URL: $url"
 }
 
-download_image_unsplash() {
+unsplash:download() {
   # $1 = photo_id
   # returns path of downloaded file
   photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
-  image_url=$(cached_unsplash_api "/photos/$photo_id" .urls.regular)
+  image_url=$(unsplash:api "/photos/$photo_id" .urls.regular)
+  # shellcheck disable=SC2154
   cached_image="$tmp_dir/$photo_id.jpg"
   if [[ ! -f "$cached_image" ]]; then
-    debug "IMG = [$image_url]"
+    IO:debug "IMG = [$image_url]"
     curl -s -o "$cached_image" "$image_url"
   else
-    debug "IMG = [$cached_image]"
+    IO:debug "IMG = [$cached_image]"
   fi
-  [[ ! -f "$cached_image" ]] && die "download [$image_url] failed"
+  [[ ! -f "$cached_image" ]] && IO:die "download [$image_url] failed"
   echo "$cached_image"
 }
 
-search_images_unsplash() {
+unsplash:search() {
   # $1 = keyword(s)
   # returns first result
   # shellcheck disable=SC2154
   if [[ "$randomize" -gt 1 ]]; then
     # pick random in 1st N results
-    choose_from=$(cached_unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
-    debug "PICK: $choose_from results in query"
+    choose_from=$(unsplash:api "/search/photos/?query=$1" .results[].id | wc -l)
+    IO:debug "PICK: $choose_from results in query"
     [[ $choose_from -gt $randomize ]] && choose_from=$randomize
     chosen=$((RANDOM % choose_from))
-    debug "PICK: photo $chosen from first $choose_from results"
-    cached_unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
+    IO:debug "PICK: photo $chosen from first $choose_from results"
+    unsplash:api "/search/photos/?query=$1" ".results[$chosen].id"
   elif [[ "$number" -gt 1 ]]; then
     # take Nth result
-    choose_from=$(cached_unsplash_api "/search/photos/?query=$1" .results[].id | wc -l)
-    debug "PICK: $choose_from results in query"
+    choose_from=$(unsplash:api "/search/photos/?query=$1" .results[].id | wc -l)
+    IO:debug "PICK: $choose_from results in query"
     [[ $choose_from -lt $number ]] && number=$choose_from
-    chosen=$((number - 1))
-    debug "PICK: photo $number from results"
-    cached_unsplash_api "/search/photos/?query=$1" ".results[$chosen].id"
+    local chosen=$((number - 1))
+    IO:debug "PICK: photo $number from results"
+    unsplash:api "/search/photos/?query=$1" ".results[$chosen].id"
   else
     # take first photo
-    cached_unsplash_api "/search/photos/?query=$1" ".results[0].id"
+    unsplash:api "/search/photos/?query=$1" ".results[0].id"
   fi
 }
 
 ### Pixabay API stuff
 
-cached_pixabay_api() {
+pixabay:api() {
   # $1 = relative API URL
   # $2 = jq query path
   # https://pixabay.com/api/docs/
   # https://pixabay.com/api/?key={ KEY }&q=yellow+flowers&image_type=photo
-  require_binary jq
+  Os:require jq
   local uniq
   local api_endpoint="https://pixabay.com/api/"
   local full_url="$api_endpoint$1"
@@ -277,19 +300,19 @@ cached_pixabay_api() {
     # no querystring yet
     full_url="$full_url?key=$PIXABAY_ACCESSKEY"
   fi
-  uniq=$(echo "$full_url" | hash 8)
+  uniq=$(echo "$full_url" | Str:digest 8)
   # shellcheck disable=SC2154
   local cached="$tmp_dir/pixabay.$uniq.json"
-  debug "API URL   = [$full_url]"
-  debug "API Cache = [$cached]"
+  IO:debug "API URL   = [$full_url]"
+  IO:debug "API Cache = [$cached]"
   if [[ ! -f "$cached" ]]; then
     # only get the data once
-    debug "Pixabay API = [$show_url]"
+    IO:debug "Pixabay API = [$show_url]"
     curl -s "$full_url" >"$cached"
     if [[ $(wc <"$cached" -c) -lt 10 ]]; then
       # remove if response is too small to be a valid answer
       rm "$cached"
-      alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
+      IO:alert "API call to [$1] came back with empty response - are your Unsplash API keys OK?"
       return 1
     fi
   fi
@@ -298,82 +321,84 @@ cached_pixabay_api() {
     sed 's/,$//'
 }
 
-download_metadata_pixabay() {
+pixabay:metadata() {
   # only get metadata if it was not yet specified as an option
-  [[ -z "${photographer:-}" ]] && photographer=$(cached_pixabay_api "?id=$photo_id&image_type=photo" ".hits[0].user")
+  [[ -z "${photographer:-}" ]] && photographer=$(pixabay:api "?id=$photo_id&image_type=photo" ".hits[0].user")
   [[ -z "${url:-}" ]] && url="https://pixabay.com/photos/$photo_id/"
-  debug "META: Photographer: $photographer"
-  debug "META: URL: $url"
+  IO:debug "META: Photographer: $photographer"
+  IO:debug "META: URL: $url"
 }
 
-download_image_pixabay() {
+pixabay:download() {
   # $1 = photo_id
   # returns path of downloaded file
   # https://pixabay.com/api/?key=<key>&id=<id>+flowers&image_type=photo
   photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
-  image_url=$(cached_pixabay_api "?id=$photo_id&image_type=photo" .hits[0].largeImageURL)
+  image_url=$(pixabay:api "?id=$photo_id&image_type=photo" .hits[0].largeImageURL)
+  # shellcheck disable=SC2154
   cached_image="$tmp_dir/$photo_id.jpg"
   if [[ ! -f "$cached_image" ]]; then
-    debug "IMG = [$image_url]"
+    IO:debug "IMG = [$image_url]"
     curl -s -o "$cached_image" "$image_url"
   else
-    debug "IMG = [$cached_image]"
+    IO:debug "IMG = [$cached_image]"
   fi
-  [[ ! -f "$cached_image" ]] && die "download [$image_url] failed"
+  [[ ! -f "$cached_image" ]] && IO:die "download [$image_url] failed"
   echo "$cached_image"
 }
 
-search_images_pixabay() {
+pixabay:search() {
   # $1 = keyword(s)
   # returns first result
   # https://pixabay.com/api/?key={ KEY }&q=yellow+flowers&image_type=photo
   # shellcheck disable=SC2154
   if [[ "$randomize" == 1 ]]; then
-    cached_pixabay_api "?image_type=photo&q=$1" ".hits[0].id"
+    pixabay:api "?image_type=photo&q=$1" ".hits[0].id"
   else
-    choose_from=$(cached_pixabay_api "?image_type=photo&q=$1" .hits[].id | wc -l)
-    debug "PICK: $choose_from results in query"
+    choose_from=$(pixabay:api "?image_type=photo&q=$1" .hits[].id | wc -l)
+    IO:debug "PICK: $choose_from results in query"
     [[ $choose_from -gt $randomize ]] && choose_from=$randomize
     chosen=$((RANDOM % choose_from))
-    debug "PICK: photo $chosen from first $choose_from results"
-    cached_pixabay_api "?image_type=photo&q=$1" ".hits[$chosen].id"
+    IO:debug "PICK: photo $chosen from first $choose_from results"
+    pixabay:api "?image_type=photo&q=$1" ".hits[$chosen].id"
   fi
 }
 
 ### Image URL stuff
 
-download_image_from_url() {
+Img:download() {
   # $1 = url
   local uniq
   local extension="jpg"
   [[ "$1" =~ .png ]] && extension="png"
   [[ "$1" =~ .gif ]] && extension="gif"
-  uniq=$(echo "$1" | hash 8)
-  cached_image="$tmp_dir/image.$uniq.$extension"
+  uniq=$(echo "$1" | Str:digest 8)
+  # shellcheck disable=SC2154
+  local cached_image="$tmp_dir/download.$uniq.$extension"
   if [[ ! -f "$cached_image" ]]; then
-    debug "IMG = [$1]"
+    IO:debug "IMG = [$1]"
     curl -s -o "$cached_image" "$1"
   else
-    debug "IMG = [$cached_image]"
+    IO:debug "IMG = [$cached_image]"
   fi
   echo "$cached_image"
 }
 
 ### Modify images
 
-set_exif() {
-  filename="$1"
-  exif_key="$2"
-  exif_val="$3"
+function Img:exif() {
+  local filename="$1"
+  local exif_key="$2"
+  local exif_val="$3"
 
   if [[ -n "$exif_val" ]]; then
-    debug "EXIF: set [$exif_key] to [$exif_val] for [$filename]"
+    IO:debug "EXIF: set [$exif_key] to [$exif_val] for [$filename]"
     exiftool -overwrite_original -"$exif_key"="$exif_val" "$filename" >/dev/null 2>/dev/null
   fi
 }
 
-set_metadata_tags() {
-  require_binary exiftool
+function Img:metadata() {
+  Os:require exiftool
 
   # $1 = type
   # $2 = filename
@@ -399,84 +424,103 @@ set_metadata_tags() {
   #  Supplemental Categories         : OtherCategories
   #  Urgency                         : 1 (most urgent)
   #  Writer-Editor                   : Caption Writer
-  set_exif "$2" "Writer-Editor" "pforret/splashmark"
+  Img:exif "$2" "Writer-Editor" "pforret/splashmark"
   if [[ "$1" == "unsplash" ]]; then
     ## metadata comes from Unsplash/Pixabay
     if [[ -f "$2" && -n ${photographer} ]]; then
-      set_exif "$2" "Artist" "$photographer"
-      set_exif "$2" "Creator" "$photographer"
-      set_exif "$2" "OwnerID" "$photographer"
-      set_exif "$2" "OwnerName" "$photographer"
-      set_exif "$2" "Credit" "Photo: $photographer on Unsplash.com"
-      set_exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
+      Img:exif "$2" "Artist" "$photographer"
+      Img:exif "$2" "Creator" "$photographer"
+      Img:exif "$2" "OwnerID" "$photographer"
+      Img:exif "$2" "OwnerName" "$photographer"
+      Img:exif "$2" "Credit" "Photo: $photographer on Unsplash.com"
+      Img:exif "$2" "ImageDescription" "Photo: $photographer on Unsplash.com"
     fi
   else
     ## metadata, if any, comes from command line options
     if [[ -f "$2" && -n ${photographer} ]]; then
-      set_exif "$2" "Artist" "$photographer"
-      set_exif "$2" "Creator" "$photographer"
-      set_exif "$2" "OwnerID" "$photographer"
-      set_exif "$2" "OwnerName" "$photographer"
-      set_exif "$2" "ImageDescription" "Photo: $photographer"
+      Img:exif "$2" "Artist" "$photographer"
+      Img:exif "$2" "Creator" "$photographer"
+      Img:exif "$2" "OwnerID" "$photographer"
+      Img:exif "$2" "OwnerName" "$photographer"
+      Img:exif "$2" "ImageDescription" "Photo: $photographer"
     fi
   fi
 }
 
-image_modify() {
+function Img:modify() {
   # $1 = input file
   # $2 = output file
 
-  require_binary convert imagemagick
+  Os:require convert imagemagick
+  local font_list
 
+  # shellcheck disable=SC2154
   font_list="$tmp_dir/magick.fonts.txt"
   if [[ ! -f "$font_list" ]]; then
     convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' >"$font_list"
   fi
   if [[ -f "$fonttype" ]]; then
-    debug "FONT [$fonttype] exists as a font file"
+    IO:debug "FONT [$fonttype] exists as a font file"
   elif grep -q "$fonttype" "$font_list"; then
-    debug "FONT [$fonttype] exists as a standard font"
+    IO:debug "FONT [$fonttype] exists as a standard font"
   elif [[ -f "$script_install_folder/fonts/$fonttype" ]]; then
     fonttype="$script_install_folder/fonts/$fonttype"
-    debug "FONT [$fonttype] exists as a splashmark font"
+    IO:debug "FONT [$fonttype] exists as a splashmark font"
   else
-    die "FONT [$fonttype] cannot be found on this system"
+    IO:die "FONT [$fonttype] cannot be found on this system"
   fi
   [[ ! -f "$1" ]] && return 1
 
   ## scale and crop
   # shellcheck disable=SC2154
-  if [[ $crop -gt 0 ]]; then
-    debug "CROP: image to $width x $crop --> $2"
+  if [[ -n "$preset" ]] ; then
+    if [[ $(Img:list_sizes | grep -c "$preset") == 1 ]] ; then
+      width="$(Img:list_sizes | grep "$preset" | cut -d'|' -f2)"
+      crop="$(Img:list_sizes | grep "$preset" | cut -d'|' -f3)"
+      IO:debug "Dimensions are now: $width x $crop ($preset)"
+    fi
+    # shellcheck disable=SC2154
+    if [[ -n "$resize" ]] ; then
+      width=$(Tool:calc "$width * $resize")
+      crop=$(Tool:calc "$crop * $resize")
+      IO:debug "Dimensions are now: $width x $crop (resize x$resize)"
+    fi
+  fi
+  # shellcheck disable=SC2154
+  if [[ "$crop" -gt 0 ]]; then
+    IO:debug "CROP: image to $width x $crop --> $2"
     convert "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
   else
-    debug "SIZE: to $width wide --> $2"
+    IO:debug "SIZE: to $width wide --> $2"
     convert "$1" -gravity Center -resize "${width}"x -quality 95% "$2"
   fi
   ## set EXIF/IPTC tags
-  set_metadata_tags "$image_source" "$2"
+  IO:debug "Img:metadata"
+  Img:metadata "$image_source" "$2"
 
   ## do visual effects
   # shellcheck disable=SC2154
   if [[ -n "$effect" ]]; then
-    image_effect "$2" "$effect"
+    IO:debug "Img:effect"
+  # shellcheck disable=SC2154
+    Img:effect "$2" "$effect"
   fi
   ## add small watermarks in the corners
   # shellcheck disable=SC2154
-  [[ -n "$northwest" ]] && image_watermark "$2" NorthWest "$northwest"
+  [[ -n "$northwest" ]] && Img:watermark "$2" NorthWest "$northwest"
   # shellcheck disable=SC2154
-  [[ -n "$northeast" ]] && image_watermark "$2" NorthEast "$northeast"
+  [[ -n "$northeast" ]] && Img:watermark "$2" NorthEast "$northeast"
   # shellcheck disable=SC2154
-  [[ -n "$southwest" ]] && image_watermark "$2" SouthWest "$southwest"
+  [[ -n "$southwest" ]] && Img:watermark "$2" SouthWest "$southwest"
   # shellcheck disable=SC2154
-  [[ -n "$southeast" ]] && image_watermark "$2" SouthEast "$southeast"
+  [[ -n "$southeast" ]] && Img:watermark "$2" SouthEast "$southeast"
 
   ## add large title watermarks in the middle
   # shellcheck disable=SC2154
-  [[ -n "$title" || -n "$subtitle" ]] && image_title "$2"
+  [[ -n "$title" || -n "$subtitle" ]] && Img:title "$2"
 }
 
-text_resolve() {
+function text_resolve() {
   case $image_source in
   unsplash)
     echo "$1" |
@@ -505,7 +549,7 @@ text_resolve() {
   esac
 }
 
-rescale_weight(){
+function rescale_weight(){
   local percent="$1"
   local percent0="$2"
   local percent100="$3"
@@ -515,23 +559,29 @@ rescale_weight(){
   else
     rescaled=$(( percent0 + ( percent100 - percent0 ) * percent / 100 ))
   fi
-  debug "Rescaled: $percent => $rescaled"
+  IO:debug "Rescaled: $percent => $rescaled"
   echo "$rescaled"
 }
 
-image_effect() {
+function Img:effect() {
   # $1 = image path
   # $2 = effect name
   # shellcheck disable=SC2154
   [[ ! -f "$1" ]] && return 1
-  require_binary mogrify imagemagick
+  Os:require mogrify imagemagick
+  local weight
+  local shrink
+  local percent
+  local large
+  local expand
 
-  for fx1 in $(echo "$effect" | tr ',' "\n"); do
-    debug "Effect : $fx1"
+  # shellcheck disable=SC2154
+  for fx1 in $(echo "$2" | tr ',' "\n"); do
+    IO:debug "Effect : $fx1"
     # shellcheck disable=SC2001
     percent="$(echo "$fx1" | sed 's/[^0-9]//g')"
     percent="${percent:-20}"
-    debug "Weight : $percent %"
+    IO:debug "Weight : $percent %"
     case "$fx1" in
     blur*)      weight=$(rescale_weight "$percent" 0 50);  mogrify -blur "${weight:-5}x${weight:-5}" "$1" ;;
     bw)         mogrify -modulate 100,0,100 "$1" ;;
@@ -556,16 +606,17 @@ image_effect() {
   done
 }
 
-image_watermark() {
+function Img:watermark() {
   # $1 = image path
   # $2 = gravity
   # $3 = text
 
   [[ ! -f "$1" ]] && return 1
-  require_binary mogrify imagemagick
+  Os:require mogrify imagemagick
 
+  IO:debug "Img:watermark $3"
   # shellcheck disable=SC2154
-  char1=$(upper_case "${fontcolor:0:1}")
+  char1=$(Str:upper "${fontcolor:0:1}")
   case $char1 in
   9 | A | B | C | D | E | F)
     shadow_color="0008"
@@ -576,18 +627,18 @@ image_watermark() {
   esac
   text=$(text_resolve "$3")
 
-  debug "MARK: [$text] in $2 corner ..."
+  IO:debug "MARK: [$text] in $2 corner ..."
   # shellcheck disable=SC2154
-  margin2=$((margin + 1))
+  local margin2=$((margin + 1))
   # shellcheck disable=SC2154
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$shadow_color" -annotate "0x0+${margin2}+${margin2}" "$text" "$1"
   mogrify -gravity "$2" -font "$fonttype" -pointsize "$fontsize" -fill "#$fontcolor" -annotate "0x0+${margin}+${margin}" "$text" "$1"
 }
 
-choose_position() {
+function choose_position() {
   position="$1"
   # shellcheck disable=SC2154
-  case $(lower_case "$gravity") in
+  case ${gravity,,} in
   left | west) position="${position}West" ;;
   right | east) position="${position}East" ;;
   esac
@@ -595,12 +646,12 @@ choose_position() {
   echo "$position"
 }
 
-image_title() {
+function Img:title() {
   # $1 = image path
 
   [[ ! -f "$1" ]] && return 1
   # shellcheck disable=SC2154
-  char1=$(upper_case "${fontcolor:0:1}")
+  char1=$(Str:upper "${fontcolor:0:1}")
   case $char1 in
   9 | A | B | C | D | E | F)
     shadow_color="0008"
@@ -609,16 +660,17 @@ image_title() {
     shadow_color="FFF8"
     ;;
   esac
-  margin1=$((margin * 3))
-  margin2=$((margin1 + 1))
+  # shellcheck disable=SC2154
+  local margin1=$((margin * 3))
+  local margin2=$((margin1 + 1))
   if [[ -n "$title" ]]; then
     text=$(text_resolve "$title")
     position=""
     [[ -n "$subtitle" ]] && position="North"
     position=$(choose_position "$position")
-    debug "MARK: title [$text] in $position ..."
+    IO:debug "MARK: title [$text] in $position ..."
     # shellcheck disable=SC2154
-    if [[ $(lower_case "$gravity") == "center" ]]; then
+    if [[ $(Str:lower "$gravity") == "center" ]]; then
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$titlesize" -fill "#$fontcolor" -annotate "0x0+0+${margin1}" "$text" "$1"
     else
@@ -631,9 +683,9 @@ image_title() {
     position=""
     [[ -n "$title" ]] && position="South"
     position=$(choose_position "$position")
-    debug "MARK: subtitle [$text] in $position ..."
+    IO:debug "MARK: subtitle [$text] in $position ..."
     # shellcheck disable=SC2154
-    if [[ $(lower_case "$gravity") == "center" ]]; then
+    if [[ $(Str:lower "$gravity") == "center" ]]; then
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$shadow_color" -annotate "0x0+1+${margin2}" "$text" "$1"
       mogrify -gravity "$position" -font "$fonttype" -pointsize "$subtitlesize" -fill "#$fontcolor" -annotate "0x0+0+${margin1}" "$text" "$1"
     else
@@ -643,6 +695,28 @@ image_title() {
   fi
 }
 
+function Img:list_sizes(){
+  cat <<END
+cinema:flat|1998|1080
+cinema:hd|1920|1080
+cinema:scope|2048|858
+facebook:cover|851|315
+facebook:horizontal|1200|630
+facebook:story|1080|1920
+facebook:vertical|1080|1350
+github:repo|1280|640
+instagram:horizontal|1350|1080
+instagram:square|1080|1080
+instagram:story|1080|1920
+instagram:vertical|1080|1350
+linkedin:horizontal|1104|736
+medium:horizontal|1500|1200
+pinterest:vertical|1000|1500
+tumblr:vertical|1280|1920
+twitter:header|1500|500
+twitter:post|1024|512
+END
+}
 #####################################################################
 ################### DO NOT MODIFY BELOW THIS LINE ###################
 #####################################################################
@@ -651,109 +725,186 @@ image_title() {
 # removed -e because it made basic [[ testing ]] difficult
 set -uo pipefail
 IFS=$'\n\t'
-hash() {
-  length=${1:-6}
-  if [[ -n $(command -v md5sum) ]]; then
-    # regular linux
-    md5sum | cut -c1-"$length"
-  else
-    # macos
-    md5 | cut -c1-"$length"
-  fi
-}
-
 force=0
 help=0
-verbose=0
+error_prefix=""
+
 #to enable verbose even before option parsing
+verbose=0
 [[ $# -gt 0 ]] && [[ $1 == "-v" ]] && verbose=1
-quiet=0
+
 #to enable quiet even before option parsing
+quiet=0
 [[ $# -gt 0 ]] && [[ $1 == "-q" ]] && quiet=1
 
-### stdout/stderr output
-initialise_output() {
+### stdIO:print/stderr output
+function IO:initialize() {
   [[ "${BASH_SOURCE[0]:-}" != "${0}" ]] && sourced=1 || sourced=0
   [[ -t 1 ]] && piped=0 || piped=1 # detect if output is piped
+  [[ -z "${TERM:-}" ]] && TERM=xterm
   if [[ $piped -eq 0 ]]; then
-    col_reset="\033[0m"
-    col_red="\033[1;31m"
-    col_grn="\033[1;32m"
-    col_ylw="\033[1;33m"
+    txtReset=$(tput sgr0)
+    txtError=$(tput setaf 160)
+    txtInfo=$(tput setaf 2)
+    txtWarn=$(tput setaf 214)
+    txtBold=$(tput bold)
+    txtItalic=$(tput sitm)
+    txtUnderline=$(tput smul)
   else
-    col_reset=""
-    col_red=""
-    col_grn=""
-    col_ylw=""
+    txtReset=""
+    txtError=""
+    txtInfo=""
+    txtInfo=""
+    txtWarn=""
+    txtBold=""
+    txtItalic=""
+    txtUnderline=""
   fi
 
   [[ $(echo -e '\xe2\x82\xac') == '€' ]] && unicode=1 || unicode=0 # detect if unicode is supported
   if [[ $unicode -gt 0 ]]; then
-    char_succ="✅"
+    char_succes="✅"
     char_fail="⛔"
-    char_alrt="✴️"
+    char_alert="✴️"
     char_wait="⏳"
     info_icon="🌼"
     config_icon="🌱"
     clean_icon="🧽"
     require_icon="🔌"
   else
-    char_succ="OK "
+    char_succes="OK "
     char_fail="!! "
-    char_alrt="?? "
+    char_alert="?? "
     char_wait="..."
     info_icon="(i)"
     config_icon="[c]"
     clean_icon="[c]"
     require_icon="[r]"
   fi
-  error_prefix="${col_red}>${col_reset}"
+  error_prefix="${txtError}>${txtReset}"
 }
 
-out() { ((quiet)) && true || printf '%b\n' "$*"; }
-debug() { if ((verbose)); then out "${col_ylw}# $* ${col_reset}" >&2; else true; fi; }
-die() {
-  out "${col_red}${char_fail} $script_basename${col_reset}: $*" >&2
-  tput bel
-  safe_exit
+function IO:print() {
+  ((quiet)) && true || printf '%b\n' "$*"
 }
-alert() { out "${col_red}${char_alrt}${col_reset}: $*" >&2; }
-success() { out "${col_grn}${char_succ}${col_reset}  $*"; }
-announce() {
-  out "${col_grn}${char_wait}${col_reset}  $*"
+
+function IO:debug() {
+  ((verbose)) && IO:print "${txtInfo}# $* ${txtReset}" >&2
+  true
+}
+
+function IO:die() {
+  IO:print "${txtError}${char_fail} $script_basename${txtReset}: $*" >&2
+  Os:beep fatal
+  Script:exit
+}
+
+function IO:alert() {
+  IO:print "${txtWarn}${char_alert}${txtReset}: ${txtUnderline}$*${txtReset}" >&2
+}
+
+function IO:success() {
+  IO:print "${txtInfo}${char_succes}${txtReset}  ${txtBold}$*${txtReset}"
+}
+
+function IO:announce() {
+  IO:print "${txtInfo}${char_wait}${txtReset}  ${txtItalic}$*${txtReset}"
   sleep 1
 }
-progress() {
+
+function IO:progress() {
   ((quiet)) || (
     local screen_width
     screen_width=$(tput cols 2>/dev/null || echo 80)
     local rest_of_line
     rest_of_line=$((screen_width - 5))
 
-    if flag_set ${piped:-0}; then
-      out "$*" >&2
+    if ((piped)); then
+      IO:print "... $*" >&2
     else
       printf "... %-${rest_of_line}b\r" "$*                                             " >&2
     fi
   )
 }
 
-log_to_file() { [[ -n ${log_file:-} ]] && echo "$(date '+%H:%M:%S') | $*" >>"$log_file"; }
+### interactive
+function IO:confirm() {
+  ((force)) && return 0
+  read -r -p "$1 [y/N] " -n 1
+  echo " "
+  [[ $REPLY =~ ^[Yy]$ ]]
+}
+
+function IO:question() {
+  local ANSWER
+  local DEFAULT=${2:-}
+  read -r -p "$1 ($DEFAULT) > " ANSWER
+  [[ -z "$ANSWER" ]] && echo "$DEFAULT" || echo "$ANSWER"
+}
+
+function IO:log() {
+  [[ -n "${log_file:-}" ]] && echo "$(date '+%H:%M:%S') | $*" >>"$log_file"
+}
+
+function Tool:calc() {
+  awk "BEGIN {print $*} ; "
+}
+
+function Tool:time() {
+  if [[ $(command -v perl) ]]; then
+    perl -MTime::HiRes=time -e 'printf "%.3f\n", time'
+  elif [[ $(command -v php) ]]; then
+    php -r 'echo microtime(true) . "\n"; '
+  elif [[ $(command -v python) ]]; then
+    python -c "import time; print(time.time()) "
+  else
+    date "+%s" | awk '{printf("%.3f\n",$1)}'
+  fi
+}
 
 ### string processing
-lower_case() { echo "$*" | tr '[:upper:]' '[:lower:]'; }
-upper_case() { echo "$*" | tr '[:lower:]' '[:upper:]'; }
 
-slugify() {
-  # slugify <input> <separator>
-  # slugify "Jack, Jill & Clémence LTD"      => jack-jill-clemence-ltd
-  # slugify "Jack, Jill & Clémence LTD" "_"  => jack_jill_clemence_ltd
+function Str:trim() {
+  local var="$*"
+  # remove leading whitespace characters
+  var="${var#"${var%%[![:space:]]*}"}"
+  # remove trailing whitespace characters
+  var="${var%"${var##*[![:space:]]}"}"
+  printf '%s' "$var"
+}
+
+function Str:lower() {
+  if [[ -n "$1" ]]; then
+    local input="$*"
+    echo "${input,,}"
+  else
+    awk '{print tolower($0)}'
+  fi
+}
+
+function Str:upper() {
+  if [[ -n "$1" ]]; then
+    local input="$*"
+    echo "${input^^}"
+  else
+    awk '{print toupper($0)}'
+  fi
+}
+
+function Str:ascii() {
+  # remove all characters with accents/diacritics to latin alphabet
+  # shellcheck disable=SC2020
+  sed 'y/àáâäæãåāǎçćčèéêëēėęěîïííīįìǐłñńôöòóœøōǒõßśšûüǔùǖǘǚǜúūÿžźżÀÁÂÄÆÃÅĀǍÇĆČÈÉÊËĒĖĘĚÎÏÍÍĪĮÌǏŁÑŃÔÖÒÓŒØŌǑÕẞŚŠÛÜǓÙǕǗǙǛÚŪŸŽŹŻ/aaaaaaaaaccceeeeeeeeiiiiiiiilnnooooooooosssuuuuuuuuuuyzzzAAAAAAAAACCCEEEEEEEEIIIIIIIILNNOOOOOOOOOSSSUUUUUUUUUUYZZZ/'
+}
+
+function Str:slugify() {
+  # Str:Str:slugify <input> <separator>
+  # Str:Str:slugify "Jack, Jill & Clémence LTD"      => jack-jill-clemence-ltd
+  # Str:Str:slugify "Jack, Jill & Clémence LTD" "_"  => jack_jill_clemence_ltd
   separator="${2:-}"
   [[ -z "$separator" ]] && separator="-"
-  # shellcheck disable=SC2020
-  echo "$1" |
-    tr '[:upper:]' '[:lower:]' |
-    tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
+  Str:lower "$1" |
+    Str:ascii |
     awk '{
           gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_]/," ",$0);
           gsub(/^  */,"",$0);
@@ -765,14 +916,13 @@ slugify() {
     sed "s/-/$separator/g"
 }
 
-title_case() {
-  # title_case <input> <separator>
-  # title_case "Jack, Jill & Clémence LTD"     => JackJillClemenceLtd
-  # title_case "Jack, Jill & Clémence LTD" "_" => Jack_Jill_Clemence_Ltd
+function Str:title() {
+  # Str:title <input> <separator>
+  # Str:title "Jack, Jill & Clémence LTD"     => JackJillClemenceLtd
+  # Str:title "Jack, Jill & Clémence LTD" "_" => Jack_Jill_Clemence_Ltd
   separator="${2:-}"
   # shellcheck disable=SC2020
-  echo "$1" |
-    tr '[:upper:]' '[:lower:]' |
+  Str:lower "$1" |
     tr 'àáâäæãåāçćčèéêëēėęîïííīįìłñńôöòóœøōõßśšûüùúūÿžźż' 'aaaaaaaaccceeeeeeeiiiiiiilnnoooooooosssuuuuuyzzz' |
     awk '{ gsub(/[\[\]@#$%^&*;,.:()<>!?\/+=_-]/," ",$0); print $0; }' |
     awk '{
@@ -785,50 +935,167 @@ title_case() {
     cut -c1-50
 }
 
-### interactive
-confirm() {
-  # $1 = question
-  flag_set $force && return 0
-  read -r -p "$1 [y/N] " -n 1
-  echo " "
-  [[ $REPLY =~ ^[Yy]$ ]]
-}
-
-ask() {
-  # $1 = variable name
-  # $2 = question
-  # $3 = default value
-  # not using read -i because that doesn't work on MacOS
-  local ANSWER
-  read -r -p "$2 ($3) > " ANSWER
-  if [[ -z "$ANSWER" ]]; then
-    eval "$1=\"$3\""
+function Str:digest() {
+  local length=${1:-6}
+  if [[ -n $(command -v md5sum) ]]; then
+    # regular linux
+    md5sum | cut -c1-"$length"
   else
-    eval "$1=\"$ANSWER\""
+    # macos
+    md5 | cut -c1-"$length"
   fi
 }
 
-trap "die \"ERROR \$? after \$SECONDS seconds \n\
+trap "IO:die \"ERROR \$? after \$SECONDS seconds \n\
 \${error_prefix} last command : '\$BASH_COMMAND' \" \
 \$(< \$script_install_path awk -v lineno=\$LINENO \
 'NR == lineno {print \"\${error_prefix} from line \" lineno \" : \" \$0}')" INT TERM EXIT
 # cf https://askubuntu.com/questions/513932/what-is-the-bash-command-variable-good-for
 
-safe_exit() {
-  [[ -n "${tmp_file:-}" ]] && [[ -f "$tmp_file" ]] && rm "$tmp_file"
+Script:exit() {
+  for temp_file in "${temp_files[@]}"; do
+    [[ -f "$temp_file" ]] && (
+      IO:debug "Delete temp file [$temp_file]"
+      rm -f "$temp_file"
+    )
+  done
   trap - INT TERM EXIT
-  debug "$script_basename finished after $SECONDS seconds"
+  IO:debug "$script_basename finished after $SECONDS seconds"
   exit 0
 }
 
-flag_set() { [[ "$1" -gt 0 ]]; }
+Script:check_version() {
+  (
+    # shellcheck disable=SC2164
+    pushd "$script_install_folder" &>/dev/null
+    if [[ -d .git ]]; then
+      local remote
+      remote="$(git remote -v | grep fetch | awk 'NR == 1 {print $2}')"
+      IO:progress "Check for latest version - $remote"
+      git remote update &>/dev/null
+      if [[ $(git rev-list --count "HEAD...HEAD@{upstream}" 2>/dev/null) -gt 0 ]]; then
+        IO:print "There is a more recent update of this script - run <<$script_prefix update>> to update"
+      fi
+    fi
+    # shellcheck disable=SC2164
+    popd &>/dev/null
+  )
+}
 
-show_usage() {
-  out "Program: ${col_grn}$script_basename $script_version${col_reset} by ${col_ylw}$script_author${col_reset}"
-  out "Updated: ${col_grn}$script_modified${col_reset}"
-  out "Description: package_description"
-  echo -n "Usage: $script_basename"
-  list_options |
+Script:git_pull() {
+  # run in background to avoid problems with modifying a running interpreted script
+  (
+    sleep 1
+    cd "$script_install_folder" && git pull
+  ) &
+}
+
+Script:show_tips() {
+  ((sourced)) && return 0
+  # shellcheck disable=SC2016
+  grep <"${BASH_SOURCE[0]}" -v '$0' |
+    awk \
+      -v green="$txtInfo" \
+      -v yellow="$txtWarn" \
+      -v reset="$txtReset" \
+      '
+      /TIP: /  {$1=""; gsub(/«/,green); gsub(/»/,reset); print "*" $0}
+      /TIP:> / {$1=""; print " " yellow $0 reset}
+      ' |
+    awk \
+      -v script_basename="$script_basename" \
+      -v script_prefix="$script_prefix" \
+      '{
+      gsub(/\$script_basename/,script_basename);
+      gsub(/\$script_prefix/,script_prefix);
+      print ;
+      }'
+}
+
+Script:check() {
+  local name
+  if [[ -n $(Option:filter flag) ]]; then
+    IO:print "## ${txtInfo}boolean flags${txtReset}:"
+    Option:filter flag |
+      while read -r name; do
+        if ((piped)); then
+          eval "echo \"$name=\$${name:-}\""
+        else
+          eval "echo -n \"$name=\$${name:-}  \""
+        fi
+      done
+    IO:print " "
+    IO:print " "
+  fi
+
+  if [[ -n $(Option:filter option) ]]; then
+    IO:print "## ${txtInfo}option defaults${txtReset}:"
+    Option:filter option |
+      while read -r name; do
+        if ((piped)); then
+          eval "echo \"$name=\$${name:-}\""
+        else
+          eval "echo -n \"$name=\$${name:-}  \""
+        fi
+      done
+    IO:print " "
+    IO:print " "
+  fi
+
+  if [[ -n $(Option:filter list) ]]; then
+    IO:print "## ${txtInfo}list options${txtReset}:"
+    Option:filter list |
+      while read -r name; do
+        if ((piped)); then
+          eval "echo \"$name=(\${${name}[@]})\""
+        else
+          eval "echo -n \"$name=(\${${name}[@]})  \""
+        fi
+      done
+    IO:print " "
+    IO:print " "
+  fi
+
+  if [[ -n $(Option:filter param) ]]; then
+    if ((piped)); then
+      IO:debug "Skip parameters for .env files"
+    else
+      IO:print "## ${txtInfo}parameters${txtReset}:"
+      Option:filter param |
+        while read -r name; do
+          # shellcheck disable=SC2015
+          ((piped)) && eval "echo \"$name=\\\"\${$name:-}\\\"\"" || eval "echo -n \"$name=\\\"\${$name:-}\\\"  \""
+        done
+      echo " "
+    fi
+    IO:print " "
+  fi
+
+  if [[ -n $(Option:filter choice) ]]; then
+    if ((piped)); then
+      IO:debug "Skip choices for .env files"
+    else
+      IO:print "## ${txtInfo}choice${txtReset}:"
+      Option:filter choice |
+        while read -r name; do
+          # shellcheck disable=SC2015
+          ((piped)) && eval "echo \"$name=\\\"\${$name:-}\\\"\"" || eval "echo -n \"$name=\\\"\${$name:-}\\\"  \""
+        done
+      echo " "
+    fi
+    IO:print " "
+  fi
+
+  IO:print "## ${txtInfo}required commands${txtReset}:"
+  Script:show_required
+}
+
+Option:usage() {
+  IO:print "Program : ${txtInfo}$script_basename${txtReset}  by ${txtWarn}$script_author${txtReset}"
+  IO:print "Version : ${txtInfo}v$script_version${txtReset} (${txtWarn}$script_modified${txtReset})"
+  IO:print "Purpose : ${txtInfo}$script_description${txtReset}"
+  echo -n "Usage   : $script_basename"
+  Option:config |
     awk '
   BEGIN { FS="|"; OFS=" "; oneline="" ; fulltext="Flags, options and parameters:"}
   $1 ~ /flag/  {
@@ -863,123 +1130,36 @@ show_usage() {
           oneline  = oneline " <" $3 " …>"
      }
     }
+  $1 ~ /choice/ {
+        fulltext = fulltext sprintf("\n    %-17s: [choice] %s","<"$3">",$4);
+        if($5!=""){fulltext = fulltext "  [options: " $5 "]"; }
+        oneline  = oneline " <" $3 ">"
+    }
     END {print oneline; print fulltext}
   '
 }
 
-check_last_version() {
-  (
-    # shellcheck disable=SC2164
-    pushd "$script_install_folder" &>/dev/null
-    if [[ -d .git ]]; then
-      local remote
-      remote="$(git remote -v | grep fetch | awk 'NR == 1 {print $2}')"
-      progress "Check for latest version - $remote"
-      git remote update &>/dev/null
-      if [[ $(git rev-list --count "HEAD...HEAD@{upstream}" 2>/dev/null) -gt 0 ]]; then
-        out "There is a more recent update of this script - run <<$script_prefix update>> to update"
-      fi
-    fi
-    # shellcheck disable=SC2164
-    popd &>/dev/null
-  )
+function Option:filter() {
+  Option:config | grep "$1|" | cut -d'|' -f3 | sort | grep -v '^\s*$'
 }
 
-update_script_to_latest() {
-  # run in background to avoid problems with modifying a running interpreted script
-  (
-    sleep 1
-    cd "$script_install_folder" && git pull
-  ) &
+function Script:show_required() {
+  grep 'Os:require' "$script_install_path" |
+    grep -v -E '\(\)|grep|# Os:require' |
+    awk -v install="# $install_package " '
+    function ltrim(s) { sub(/^[ "\t\r\n]+/, "", s); return s }
+    function rtrim(s) { sub(/[ "\t\r\n]+$/, "", s); return s }
+    function trim(s) { return rtrim(ltrim(s)); }
+    NF == 2 {print install trim($2); }
+    NF == 3 {print install trim($3); }
+    NF > 3  {$1=""; $2=""; $0=trim($0); print "# " trim($0);}
+  ' |
+    sort -u
 }
 
-show_tips() {
-  ((sourced)) && return 0
-  # shellcheck disable=SC2016
-  grep <"${BASH_SOURCE[0]}" -v '$0' |
-    awk \
-      -v green="$col_grn" \
-      -v yellow="$col_ylw" \
-      -v reset="$col_reset" \
-      '
-      /TIP: /  {$1=""; gsub(/«/,green); gsub(/»/,reset); print "*" $0}
-      /TIP:> / {$1=""; print " " yellow $0 reset}
-      ' |
-    awk \
-      -v script_basename="$script_basename" \
-      -v script_prefix="$script_prefix" \
-      '{
-      gsub(/\$script_basename/,script_basename);
-      gsub(/\$script_prefix/,script_prefix);
-      print ;
-      }'
-}
-
-check_script_settings() {
-  if [[ -n $(filter_option_type flag) ]]; then
-    out "## ${col_grn}boolean flags${col_reset}:"
-    filter_option_type flag |
-      while read -r name; do
-        if ((piped)); then
-          eval "echo \"$name=\$${name:-}\""
-        else
-          eval "echo -n \"$name=\$${name:-}  \""
-        fi
-      done
-    out " "
-    out " "
-  fi
-
-  if [[ -n $(filter_option_type option) ]]; then
-    out "## ${col_grn}option defaults${col_reset}:"
-    filter_option_type option |
-      while read -r name; do
-        if ((piped)); then
-          eval "echo \"$name=\$${name:-}\""
-        else
-          eval "echo -n \"$name=\$${name:-}  \""
-        fi
-      done
-    out " "
-    out " "
-  fi
-
-  if [[ -n $(filter_option_type list) ]]; then
-    out "## ${col_grn}list options${col_reset}:"
-    filter_option_type list |
-      while read -r name; do
-        if ((piped)); then
-          eval "echo \"$name=(\${${name}[@]})\""
-        else
-          eval "echo -n \"$name=(\${${name}[@]})  \""
-        fi
-      done
-    out " "
-    out " "
-  fi
-
-  if [[ -n $(filter_option_type param) ]]; then
-    if ((piped)); then
-      debug "Skip parameters for .env files"
-    else
-      out "## ${col_grn}parameters${col_reset}:"
-      filter_option_type param |
-        while read -r name; do
-          # shellcheck disable=SC2015
-          ((piped)) && eval "echo \"$name=\\\"\${$name:-}\\\"\"" || eval "echo -n \"$name=\\\"\${$name:-}\\\"  \""
-        done
-      echo " "
-    fi
-  fi
-}
-
-filter_option_type() {
-  list_options | grep "$1|" | cut -d'|' -f3 | sort | grep -v '^\s*$'
-}
-
-init_options() {
+function Option:initialize() {
   local init_command
-  init_command=$(list_options |
+  init_command=$(Option:config |
     grep -v "verbose|" |
     awk '
     BEGIN { FS="|"; OFS=" ";}
@@ -987,22 +1167,24 @@ init_options() {
     $1 ~ /flag/   && $5 != "" {print $3 "=\"" $5 "\"; "}
     $1 ~ /option/ && $5 == "" {print $3 "=\"\"; "}
     $1 ~ /option/ && $5 != "" {print $3 "=\"" $5 "\"; "}
-    $1 ~ /list/ {print $3 "=(); "}
-    $1 ~ /secret/ {print $3 "=\"\"; "}
+    $1 ~ /choice/   {print $3 "=\"\"; "}
+    $1 ~ /list/     {print $3 "=(); "}
+    $1 ~ /secret/   {print $3 "=\"\"; "}
     ')
   if [[ -n "$init_command" ]]; then
     eval "$init_command"
   fi
 }
 
-expects_single_params() { list_options | grep 'param|1|' >/dev/null; }
-expects_optional_params() { list_options | grep 'param|?|' >/dev/null; }
-expects_multi_param() { list_options | grep 'param|n|' >/dev/null; }
+function Option:has_single() { Option:config | grep 'param|1|' >/dev/null; }
+function Option:has_choice() { Option:config | grep 'choice|1' >/dev/null; }
+function Option:has_optional() { Option:config | grep 'param|?|' >/dev/null; }
+function Option:has_multi() { Option:config | grep 'param|n|' >/dev/null; }
 
-parse_options() {
+function Option:parse() {
   if [[ $# -eq 0 ]]; then
-    show_usage >&2
-    safe_exit
+    Option:usage >&2
+    Script:exit
   fi
 
   ## first process all the -x --xxxx flags and options
@@ -1018,7 +1200,7 @@ parse_options() {
       break
     fi
     local save_option
-    save_option=$(list_options |
+    save_option=$(Option:config |
       awk -v opt="$1" '
         BEGIN { FS="|"; OFS=" ";}
         $1 ~ /flag/   &&  "-"$2 == opt {print $3"=1"}
@@ -1034,116 +1216,169 @@ parse_options() {
       if echo "$save_option" | grep shift >>/dev/null; then
         local save_var
         save_var=$(echo "$save_option" | cut -d= -f1)
-        debug "$config_icon parameter: ${save_var}=$2"
+        IO:debug "$config_icon parameter: ${save_var}=$2"
       else
-        debug "$config_icon flag: $save_option"
+        IO:debug "$config_icon flag: $save_option"
       fi
       eval "$save_option"
     else
-      die "cannot interpret option [$1]"
+      IO:die "cannot interpret option [$1]"
     fi
     shift
   done
 
   ((help)) && (
-    show_usage
-    check_last_version
-    out "                                  "
+    Option:usage
+    Script:check_version
+    IO:print "                                  "
     echo "### TIPS & EXAMPLES"
-    show_tips
+    Script:show_tips
 
-  ) && safe_exit
+  ) && Script:exit
 
+  local option_list
+  local option_count
+  local choices
+  local single_params
   ## then run through the given parameters
-  if expects_single_params; then
-    single_params=$(list_options | grep 'param|1|' | cut -d'|' -f3)
-    list_singles=$(echo "$single_params" | xargs)
-    single_count=$(echo "$single_params" | count_words)
-    debug "$config_icon Expect : $single_count single parameter(s): $list_singles"
-    [[ $# -eq 0 ]] && die "need the parameter(s) [$list_singles]"
+  if Option:has_choice; then
+    choices=$(Option:config | awk -F"|" '
+      $1 == "choice" && $2 == 1 {print $3}
+      ')
+    option_list=$(xargs <<<"$choices")
+    option_count=$(wc <<<"$choices" -w | xargs)
+    IO:debug "$config_icon Expect : $option_count choice(s): $option_list"
+    [[ $# -eq 0 ]] && IO:die "need the choice(s) [$option_list]"
 
-    for param in $single_params; do
-      [[ $# -eq 0 ]] && die "need parameter [$param]"
-      [[ -z "$1" ]] && die "need parameter [$param]"
-      debug "$config_icon Assign : $param=$1"
+    local choices_list
+    local valid_choice
+    for param in $choices; do
+      [[ $# -eq 0 ]] && IO:die "need choice [$param]"
+      [[ -z "$1" ]] && IO:die "need choice [$param]"
+      IO:debug "$config_icon Assign : $param=$1"
+      # check if choice is in list
+      choices_list=$(Option:config | awk -F"|" -v choice="$param" '$1 == "choice" && $3 = choice {print $5}')
+      valid_choice=$(tr <<<"$choices_list" "," "\n" | grep "$1")
+      [[ -z "$valid_choice" ]] && IO:die "choice [$1] is not valid, should be in list [$choices_list]"
+
       eval "$param=\"$1\""
       shift
     done
   else
-    debug "$config_icon No single params to process"
-    single_params=""
-    single_count=0
+    IO:debug "$config_icon No choices to process"
+    choices=""
+    option_count=0
   fi
 
-  if expects_optional_params; then
-    optional_params=$(list_options | grep 'param|?|' | cut -d'|' -f3)
-    optional_count=$(echo "$optional_params" | count_words)
-    debug "$config_icon Expect : $optional_count optional parameter(s): $(echo "$optional_params" | xargs)"
+  if Option:has_single; then
+    single_params=$(Option:config | awk -F"|" '
+      $1 == "param" && $2 == 1 {print $3}
+      ')
+    option_list=$(xargs <<<"$single_params")
+    option_count=$(wc <<<"$single_params" -w | xargs)
+    IO:debug "$config_icon Expect : $option_count single parameter(s): $option_list"
+    [[ $# -eq 0 ]] && IO:die "need the parameter(s) [$option_list]"
+
+    for param in $single_params; do
+      [[ $# -eq 0 ]] && IO:die "need parameter [$param]"
+      [[ -z "$1" ]] && IO:die "need parameter [$param]"
+      IO:debug "$config_icon Assign : $param=$1"
+      eval "$param=\"$1\""
+      shift
+    done
+  else
+    IO:debug "$config_icon No single params to process"
+    single_params=""
+    option_count=0
+  fi
+
+  if Option:has_optional; then
+    local optional_params
+    local optional_count
+    optional_params=$(Option:config | grep 'param|?|' | cut -d'|' -f3)
+    optional_count=$(wc <<<"$optional_params" -w | xargs)
+    IO:debug "$config_icon Expect : $optional_count optional parameter(s): $(echo "$optional_params" | xargs)"
 
     for param in $optional_params; do
-      debug "$config_icon Assign : $param=${1:-}"
+      IO:debug "$config_icon Assign : $param=${1:-}"
       eval "$param=\"${1:-}\""
       shift
     done
   else
-    debug "$config_icon No optional params to process"
+    IO:debug "$config_icon No optional params to process"
     optional_params=""
     optional_count=0
   fi
 
-  if expects_multi_param; then
-    #debug "Process: multi param"
-    multi_count=$(list_options | grep -c 'param|n|')
-    multi_param=$(list_options | grep 'param|n|' | cut -d'|' -f3)
-    debug "$config_icon Expect : $multi_count multi parameter: $multi_param"
-    ((multi_count > 1)) && die "cannot have >1 'multi' parameter: [$multi_param]"
-    ((multi_count > 0)) && [[ $# -eq 0 ]] && die "need the (multi) parameter [$multi_param]"
+  if Option:has_multi; then
+    #IO:debug "Process: multi param"
+    local multi_count
+    local multi_param
+    multi_count=$(Option:config | grep -c 'param|n|')
+    multi_param=$(Option:config | grep 'param|n|' | cut -d'|' -f3)
+    IO:debug "$config_icon Expect : $multi_count multi parameter: $multi_param"
+    ((multi_count > 1)) && IO:die "cannot have >1 'multi' parameter: [$multi_param]"
+    ((multi_count > 0)) && [[ $# -eq 0 ]] && IO:die "need the (multi) parameter [$multi_param]"
     # save the rest of the params in the multi param
     if [[ -n "$*" ]]; then
-      debug "$config_icon Assign : $multi_param=$*"
+      IO:debug "$config_icon Assign : $multi_param=$*"
       eval "$multi_param=( $* )"
     fi
   else
     multi_count=0
     multi_param=""
-    [[ $# -gt 0 ]] && die "cannot interpret extra parameters"
+    [[ $# -gt 0 ]] && IO:die "cannot interpret extra parameters"
   fi
 }
 
-require_binary() {
+function Os:require() {
+  local install_instructions
+  local binary
+  local words
+  local path_binary
+  # $1 = binary that is required
   binary="$1"
   path_binary=$(command -v "$binary" 2>/dev/null)
-  [[ -n "$path_binary" ]] && debug "️$require_icon required [$binary] -> $path_binary" && return 0
-  #
-  words=$(echo "${2:-}" | wc -l)
-  case $words in
-  0) install_instructions="$install_package $1" ;;
-  1) install_instructions="$install_package $2" ;;
-  *) install_instructions="$2" ;;
-  esac
-  alert "$script_basename needs [$binary] but it cannot be found"
-  alert "1) install package  : $install_instructions"
-  alert "2) check path       : export PATH=\"[path of your binary]:\$PATH\""
-  die "Missing program/script [$binary]"
+  [[ -n "$path_binary" ]] && IO:debug "️$require_icon required [$binary] -> $path_binary" && return 0
+  # $2 = how to install it
+  words=$(echo "${2:-}" | wc -w)
+  if ((force)); then
+    IO:announce "Installing [$1] ..."
+    case $words in
+    0) eval "$install_package $1" ;;
+      # Os:require ffmpeg -- binary and package have the same name
+    1) eval "$install_package $2" ;;
+      # Os:require convert imagemagick -- binary and package have different names
+    *) eval "${2:-}" ;;
+      # Os:require primitive "go get -u github.com/fogleman/primitive" -- non-standard package manager
+    esac
+  else
+    install_instructions="$install_package $1"
+    [[ $words -eq 1 ]] && install_instructions="$install_package $2"
+    [[ $words -gt 1 ]] && install_instructions="${2:-}"
+
+    IO:alert "$script_basename needs [$binary] but it cannot be found"
+    IO:alert "1) install package  : $install_instructions"
+    IO:alert "2) check path       : export PATH=\"[path of your binary]:\$PATH\""
+    IO:die "Missing program/script [$binary]"
+  fi
 }
 
-folder_prep() {
+function Os:folder() {
   if [[ -n "$1" ]]; then
     local folder="$1"
     local max_days=${2:-365}
     if [[ ! -d "$folder" ]]; then
-      debug "$clean_icon Create folder : [$folder]"
+      IO:debug "$clean_icon Create folder : [$folder]"
       mkdir -p "$folder"
     else
-      debug "$clean_icon Cleanup folder: [$folder] - delete files older than $max_days day(s)"
+      IO:debug "$clean_icon Cleanup folder: [$folder] - delete files older than $max_days day(s)"
       find "$folder" -mtime "+$max_days" -type f -exec rm {} \;
     fi
   fi
 }
 
-count_words() { wc -w | awk '{ gsub(/ /,""); print}'; }
-
-recursive_readlink() {
+function Os:follow_link() {
   [[ ! -L "$1" ]] && echo "$1" && return 0
   local file_folder
   local link_folder
@@ -1157,29 +1392,69 @@ recursive_readlink() {
   link_name=$(basename "$symlink")
   [[ -z "$link_folder" ]] && link_folder="$file_folder"
   [[ "$link_folder" == \.* ]] && link_folder="$(cd -P "$file_folder" && cd -P "$link_folder" &>/dev/null && pwd)"
-  debug "$info_icon Symbolic ln: $1 -> [$symlink]"
-  recursive_readlink "$link_folder/$link_name"
+  IO:debug "$info_icon Symbolic ln: $1 -> [$symlink]"
+  Os:follow_link "$link_folder/$link_name"
 }
 
-lookup_script_data() {
-  readonly script_prefix=$(basename "${BASH_SOURCE[0]}" .sh)
-  readonly script_basename=$(basename "${BASH_SOURCE[0]}")
-  readonly execution_day=$(date "+%Y-%m-%d")
-  #readonly execution_year=$(date "+%Y")
+function Os:notify() {
+  # cf https://levelup.gitconnected.com/5-modern-bash-scripting-techniques-that-only-a-few-programmers-know-4abb58ddadad
+  local message="$1"
+  local source="${2:-$script_basename}"
+
+  [[ -n $(command -v notify-send) ]] && notify-send "$source" "$message"                                      # for Linux
+  [[ -n $(command -v osascript) ]] && osascript -e "display notification \"$message\" with title \"$source\"" # for MacOS
+}
+
+function Os:busy() {
+  # show spinner as long as process $pid is running
+  local pid="$1"
+  local message="${2:-}"
+  local frames=("|" "/" "-" "\\")
+  (
+    while kill -0 "$pid" &>/dev/null; do
+      for frame in "${frames[@]}"; do
+        printf "\r[ $frame ] %s..." "$message"
+        sleep 0.5
+      done
+    done
+    printf "\n"
+  )
+}
+
+function Os:beep() {
+  local type="${1:-info}"
+  case $type in
+  *)
+    tput -Txterm bel
+    ;;
+  esac
+}
+
+function Script:meta() {
+  local git_repo_remote=""
+  local git_repo_root=""
+  local os_kernel=""
+  local os_machine=""
+  local os_name=""
+  local os_version=""
+  local script_hash="?"
+  local script_lines="?"
+  local shell_brand=""
+  local shell_version=""
+
+  script_prefix=$(basename "${BASH_SOURCE[0]}" .sh)
+  script_basename=$(basename "${BASH_SOURCE[0]}")
+  execution_day=$(date "+%Y-%m-%d")
 
   script_install_path="${BASH_SOURCE[0]}"
-  debug "$info_icon Script path: $script_install_path"
-  script_install_path=$(recursive_readlink "$script_install_path")
-  debug "$info_icon Linked path: $script_install_path"
-  readonly script_install_folder="$(cd -P "$(dirname "$script_install_path")" && pwd)"
-  debug "$info_icon In folder  : $script_install_folder"
+  IO:debug "$info_icon Script path: $script_install_path"
+  script_install_path=$(Os:follow_link "$script_install_path")
+  IO:debug "$info_icon Linked path: $script_install_path"
+  script_install_folder="$(cd -P "$(dirname "$script_install_path")" && pwd)"
+  IO:debug "$info_icon In folder  : $script_install_folder"
   if [[ -f "$script_install_path" ]]; then
-    script_hash=$(hash <"$script_install_path" 8)
+    script_hash=$(Str:digest <"$script_install_path" 8)
     script_lines=$(awk <"$script_install_path" 'END {print NR}')
-  else
-    # can happen when script is sourced by e.g. bash_unit
-    script_hash="?"
-    script_lines="?"
   fi
 
   # get shell/operating system/versions
@@ -1189,9 +1464,9 @@ lookup_script_data() {
   [[ -n "${BASH_VERSION:-}" ]] && shell_brand="bash" && shell_version="$BASH_VERSION"
   [[ -n "${FISH_VERSION:-}" ]] && shell_brand="fish" && shell_version="$FISH_VERSION"
   [[ -n "${KSH_VERSION:-}" ]] && shell_brand="ksh" && shell_version="$KSH_VERSION"
-  debug "$info_icon Shell type : $shell_brand - version $shell_version"
+  IO:debug "$info_icon Shell type : $shell_brand - version $shell_version"
 
-  readonly os_kernel=$(uname -s)
+  os_kernel=$(uname -s)
   os_version=$(uname -r)
   os_machine=$(uname -m)
   install_package=""
@@ -1207,8 +1482,8 @@ lookup_script_data() {
   Linux | GNU*)
     if [[ $(command -v lsb_release) ]]; then
       # 'normal' Linux distributions
-      os_name=$(lsb_release -i)    # Ubuntu
-      os_version=$(lsb_release -r) # 20.04
+      os_name=$(lsb_release -i | awk -F: '{$1=""; gsub(/^[\s\t]+/,"",$2); gsub(/[\s\t]+$/,"",$2); print $2}')    # Ubuntu/Raspbian
+      os_version=$(lsb_release -r | awk -F: '{$1=""; gsub(/^[\s\t]+/,"",$2); gsub(/[\s\t]+$/,"",$2); print $2}') # 20.04
     else
       # Synology, QNAP,
       os_name="Linux"
@@ -1227,28 +1502,27 @@ lookup_script_data() {
     ;;
 
   esac
-  debug "$info_icon System OS  : $os_name ($os_kernel) $os_version on $os_machine"
-  debug "$info_icon Package mgt: $install_package"
+  IO:debug "$info_icon System OS  : $os_name ($os_kernel) $os_version on $os_machine"
+  IO:debug "$info_icon Package mgt: $install_package"
 
   # get last modified date of this script
   script_modified="??"
   [[ "$os_kernel" == "Linux" ]] && script_modified=$(stat -c %y "$script_install_path" 2>/dev/null | cut -c1-16) # generic linux
   [[ "$os_kernel" == "Darwin" ]] && script_modified=$(stat -f "%Sm" "$script_install_path" 2>/dev/null)          # for MacOS
 
-  debug "$info_icon Last modif : $script_modified"
-  debug "$info_icon Script ID  : $script_lines lines / md5: $script_hash"
-  debug "$info_icon Creation   : $script_created"
-  debug "$info_icon Running as : $USER@$HOSTNAME"
+  IO:debug "$info_icon Version  : $script_version"
+  IO:debug "$info_icon Created  : $script_created"
+  IO:debug "$info_icon Modified : $script_modified"
+
+  IO:debug "$info_icon Lines    : $script_lines lines / md5: $script_hash"
+  IO:debug "$info_icon User     : $USER@$HOSTNAME"
 
   # if run inside a git repo, detect for which remote repo it is
   if git status &>/dev/null; then
-    readonly git_repo_remote=$(git remote -v | awk '/(fetch)/ {print $2}')
-    debug "$info_icon git remote : $git_repo_remote"
-    readonly git_repo_root=$(git rev-parse --show-toplevel)
-    debug "$info_icon git folder : $git_repo_root"
-  else
-    readonly git_repo_root=""
-    readonly git_repo_remote=""
+    git_repo_remote=$(git remote -v | awk '/(fetch)/ {print $2}')
+    IO:debug "$info_icon git remote : $git_repo_remote"
+    git_repo_root=$(git rev-parse --show-toplevel)
+    IO:debug "$info_icon git folder : $git_repo_root"
   fi
 
   # get script version from VERSION.md file - which is automatically updated by pforret/setver
@@ -1257,50 +1531,90 @@ lookup_script_data() {
   [[ -n "$git_repo_root" ]] && [[ -n "$(git tag &>/dev/null)" ]] && script_version=$(git tag --sort=version:refname | tail -1)
 }
 
-prep_log_and_temp_dir() {
-  tmp_file=""
+function Script:initialize() {
   log_file=""
   if [[ -n "${tmp_dir:-}" ]]; then
-    folder_prep "$tmp_dir" 1
-    tmp_file=$(mktemp "$tmp_dir/$execution_day.XXXXXX")
-    debug "$config_icon tmp_file: $tmp_file"
-    # you can use this temporary file in your program
-    # it will be deleted automatically if the program ends without problems
+    # clean up TMP folder after 1 day
+    Os:folder "$tmp_dir" 1
   fi
   if [[ -n "${log_dir:-}" ]]; then
-    folder_prep "$log_dir" 30
+    Os:folder "$log_dir" 30
     log_file="$log_dir/$script_prefix.$execution_day.log"
-    debug "$config_icon log_file: $log_file"
+    IO:debug "$config_icon log_file: $log_file"
   fi
 }
 
-import_env_if_any() {
-  env_files=("$script_install_folder/.env" "$script_install_folder/$script_prefix.env" "./.env" "./$script_prefix.env")
+function Os:tempfile() {
+  local extension=${1:-txt}
+  local file="${tmp_dir:-/tmp}/$execution_day.$RANDOM.$extension"
+  IO:debug "$config_icon tmp_file: $file"
+  temp_files+=("$file")
+  echo "$file"
+}
+
+function Os:import_env() {
+  local env_files
+  env_files=(
+    "$script_install_folder/.env"
+    "$script_install_folder/.$script_prefix.env"
+    "$script_install_folder/$script_prefix.env"
+    "./.env"
+    "./.$script_prefix.env"
+    "./$script_prefix.env"
+  )
 
   for env_file in "${env_files[@]}"; do
     if [[ -f "$env_file" ]]; then
-      debug "$config_icon Read config from [$env_file]"
+      IO:debug "$config_icon Read  dotenv: [$env_file]"
+      local clean_file
+      clean_file=$(Os:clean_env "$env_file")
       # shellcheck disable=SC1090
-      source "$env_file"
+      source "$clean_file" && rm "$clean_file"
     fi
   done
 }
 
-initialise_output  # output settings
-lookup_script_data # find installation folder
+function Os:clean_env() {
+  local input="$1"
+  local output="$1.__.sh"
+  [[ ! -f "$input" ]] && IO:die "Input file [$input] does not exist"
+  IO:debug "$clean_icon Clean dotenv: [$output]"
+  awk <"$input" '
+      function ltrim(s) { sub(/^[ \t\r\n]+/, "", s); return s }
+      function rtrim(s) { sub(/[ \t\r\n]+$/, "", s); return s }
+      function trim(s) { return rtrim(ltrim(s)); }
+      /=/ { # skip lines with no equation
+        $0=trim($0);
+        if(substr($0,1,1) != "#"){ # skip comments
+          equal=index($0, "=");
+          key=trim(substr($0,1,equal-1));
+          val=trim(substr($0,equal+1));
+          if(match(val,/^".*"$/) || match(val,/^\047.*\047$/)){
+            print key "=" val
+          } else {
+            print key "=\"" val "\""
+          }
+        }
+      }
+  ' >"$output"
+  echo "$output"
+}
 
-[[ $run_as_root == 1 ]] && [[ $UID -ne 0 ]] && die "user is $USER, MUST be root to run [$script_basename]"
-[[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && die "user is $USER, CANNOT be root to run [$script_basename]"
+IO:initialize # output settings
+Script:meta   # find installation folder
 
-init_options      # set default values for flags & options
-import_env_if_any # overwrite with .env if any
+[[ $run_as_root == 1 ]] && [[ $UID -ne 0 ]] && IO:die "user is $USER, MUST be root to run [$script_basename]"
+[[ $run_as_root == -1 ]] && [[ $UID -eq 0 ]] && IO:die "user is $USER, CANNOT be root to run [$script_basename]"
+
+Option:initialize # set default values for flags & options
+Os:import_env     # overwrite with .env if any
 
 if [[ $sourced -eq 0 ]]; then
-  parse_options "$@"    # overwrite with specified options if any
-  prep_log_and_temp_dir # clean up debug and temp folder
-  main                  # run main program
-  safe_exit             # exit and clean up
+  Option:parse "$@" # overwrite with specified options if any
+  Script:initialize # clean up folders
+  Script:main       # run Script:main program
+  Script:exit       # exit and clean up
 else
-  # just disable the trap, don't execute main
+  # just disable the trap, don't execute Script:main
   trap - INT TERM EXIT
 fi

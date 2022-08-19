@@ -25,17 +25,16 @@ Works with
 ## Usage
 
 ```bash
-Program: splashmark 3.0.0 by peter@forret.com
-Updated: Apr 20 22:27:45 2021
-Description: package_description
-Usage: splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] 
-          [-w <width>] [-c <crop>] 
+Program : splashmark  by peter@forret.com
+Version : v3.3.3 (Jun  9 23:12:30 2022)
+Purpose : Mark up images (unspash/pixabay/URL/file) with titles, effects and resize
+Usage   : splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] 
+          [-w <width>] [-c <crop>] [-s <preset>] [-S <resize>] 
           [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] 
-          [-d <randomize>] [-e <effect>] [-g <gravity>] [-i <title>] [-z <titlesize>] 
-          [-k <subtitle>] [-j <subtitlesize>] [-m <margin>] 
-          [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] 
-          [-x <photographer>] [-u <url>] 
-          [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] 
+          [-d <randomize>] [-D <number>] [-e <effect>] [-g <gravity>] 
+          [-i <title>] [-z <titlesize>] [-k <subtitle>] [-j <subtitlesize>] 
+          [-m <margin>] [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] 
+          [-x <photographer>] [-u <url>] [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] 
           <action> <input?> <output?>
 Flags, options and parameters:
     -h|--help        : [flag] show usage [default: off]
@@ -45,11 +44,14 @@ Flags, options and parameters:
     -t|--tmp_dir <?> : [option] folder for temp files  [default: /tmp/splashmark]
     -w|--width <?>   : [option] image width for resizing  [default: 1200]
     -c|--crop <?>    : [option] image height for cropping  [default: 0]
+    -s|--preset <?>  : [option] image size preset
+    -S|--resize <?>  : [option] multiply preset with factor
     -1|--northwest <?>: [option] text to put in left top
     -2|--northeast <?>: [option] text to put in right top  [default: {url}]
     -3|--southwest <?>: [option] text to put in left bottom  [default: Created with pforret/splashmark]
     -4|--southeast <?>: [option] text to put in right bottom  [default: {copyright2}]
     -d|--randomize <?>: [option] take a random picture in the first N results  [default: 1]
+    -D|--number <?>  : [option] take the Nth picture from query results  [default: 1]
     -e|--effect <?>  : [option] use effect chain on image: bw/blur/dark/grain/light/median/paint/pixel
     -g|--gravity <?> : [option] title alignment left/center/right  [default: center]
     -i|--title <?>   : [option] big text to put in center
@@ -64,7 +66,7 @@ Flags, options and parameters:
     -u|--url <?>     : [option] photo URL override (empty: use URL from API)
     -P|--PIXABAY_ACCESSKEY <?>: [option] Pixabay access key
     -U|--UNSPLASH_ACCESSKEY <?>: [option] Unsplash access key
-    <action>         : [parameter] action to perform: unsplash/file/url
+    <action>         : [choice] action to perform  [options: unsplash,file,url,sizes,check,env,update]
     <input>          : [parameter] URL or search term (optional)
     <output>         : [parameter] output file (optional)
                                   @github.com:pforret/splashmark.git                                             
@@ -88,14 +90,11 @@ Flags, options and parameters:
 * use splashmark env to generate an example .env file
   splashmark env > .env
 * to create a social image for Github
-  splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" 
-    -r EEEEEE -e median,dark,grain unsplash <keyword>
+  splashmark -w 1280 -c 640 -z 100 -i "<user>/<repo>" -k "line 1\nline 2" -r EEEEEE -e median,dark,grain unsplash <keyword>
 * to create a social image for Instagram
-  splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark 
-    pixabay clouds clouds.jpg
+  splashmark -w 1080 -c 1080 -z 150 -i "Carpe diem" -e dark pixabay clouds clouds.jpg
 * to create a social image for Facebook
-  splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches" 
-    -e dark unsplash copacabana                
+  splashmark -w 1200 -c 630 -i "20 worldwide destinations\nwith the best beaches\nfor unforgettable holidays" -e dark unsplash copacabana
 ```
 
 ## installation
@@ -190,9 +189,29 @@ example.jpg
 ## Examples
 check [EXAMPLES.md](https://github.com/pforret/splashmark/blob/master/EXAMPLES.md)
 
+## Size presets
 
-## Common image sizes
-* [facebook-profile-picture-size-and-more](https://www.godaddy.com/garage/facebook-profile-picture-size-and-more/)
+```bash
+$ splashmark sizes
+cinema:flat          WxH: 1998 x 1080
+cinema:hd            WxH: 1920 x 1080
+cinema:scope         WxH: 2048 x  858
+facebook:cover       WxH:  851 x  315
+facebook:horizontal  WxH: 1200 x  630
+facebook:story       WxH: 1080 x 1920
+facebook:vertical    WxH: 1080 x 1350
+github:repo          WxH: 1280 x  640
+instagram:horizontal WxH: 1350 x 1080
+instagram:square     WxH: 1080 x 1080
+instagram:story      WxH: 1080 x 1920
+instagram:vertical   WxH: 1080 x 1350
+linkedin:horizontal  WxH: 1104 x  736
+medium:horizontal    WxH: 1500 x 1200
+pinterest:vertical   WxH: 1000 x 1500
+tumblr:vertical      WxH: 1280 x 1920
+twitter:header       WxH: 1500 x  500
+twitter:post         WxH: 1024 x  512
+```
 ---
 
 &copy; 2020 [Peter Forret](https://github.com/pforret)

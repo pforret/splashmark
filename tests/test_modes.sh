@@ -15,23 +15,19 @@ root_folder=$(cd .. && pwd) # tests/.. is root folder
 # shellcheck disable=SC2035
 root_script=$(find "$root_folder" -maxdepth 1 -name "*.sh" | head -1) # normally there should be only 1
 
-test_no_parameters_shows_usage() {
-  # script without parameters should give usage info
-  assert "$root_script"
+test_mode_unsplash() {
+  assert "$root_script unsplash apple test.jpg"
 }
 
-test_usage_shows_option_verbose() {
-  # script without parameters should show option -v or --verbose
-  assert_equals 1 "$("$root_script" 2>&1 | grep -c "Usage")"
-  assert_equals 1 "$("$root_script" 2>&1 | grep -c "verbose")"
+test_mode_pixabay() {
+  assert "$root_script pixabay apple test.jpg"
 }
 
-test_env_generates_env_file() {
-  # script without parameters should show option -v or --verbose
-  assert_equals 1 "$("$root_script" env 2>&1 | grep -c "UNSPLASH_ACCESSKEY=")"
+test_mode_url() {
+  assert "$root_script url https://i.pinimg.com/736x/b5/ac/7d/b5ac7d5c3bc6a643bcf62c098acd7392.jpg test.jpg"
 }
 
-test_check_generates_env_file() {
-  # script without parameters should show option -v or --verbose
-  assert_equals 1 "$("$root_script" check 2>&1 | grep -c "UNSPLASH_ACCESSKEY=")"
+test_mode_file() {
+  assert "$root_script file images/square.jpg test.jpg"
 }
+
