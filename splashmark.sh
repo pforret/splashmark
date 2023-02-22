@@ -146,7 +146,7 @@ url | u)
   image_file=$(Img:download "$input")
   [[ ! -f "$image_file" ]] && IO:die "Cannot download input image [$input]"
   name=$(basename "$image_file" .jpg | cut -c1-8)
-  hash=$(echo "$url" | Str:digest 6)
+  hash=$(<<< "$input" Str:digest 6)
   [[ -z "${output:-}" ]] && output="url.$name.$hash.jpg"
   IO:debug "Process cached image [$image_file] -> [$output]"
   Img:modify "$image_file" "$output"
