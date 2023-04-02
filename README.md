@@ -26,16 +26,9 @@ Works with
 
 ```bash
 Program : splashmark  by peter@forret.com
-Version : v3.3.3 (Jun  9 23:12:30 2022)
-Purpose : Mark up images (unspash/pixabay/URL/file) with titles, effects and resize
-Usage   : splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] 
-          [-w <width>] [-c <crop>] [-s <preset>] [-S <resize>] 
-          [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] 
-          [-d <randomize>] [-D <number>] [-e <effect>] [-g <gravity>] 
-          [-i <title>] [-z <titlesize>] [-k <subtitle>] [-j <subtitlesize>] 
-          [-m <margin>] [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] 
-          [-x <photographer>] [-u <url>] [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] 
-          <action> <input?> <output?>
+Version : v3.4.0 (Apr  2 22:21:00 2023)
+Purpose : Mark up images (unspash/pixabay/URL) with titles, effects and resize
+Usage   : splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <crop>] [-s <preset>] [-S <resize>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] [-d <randomize>] [-D <number>] [-e <effect>] [-g <gravity>] [-i <title>] [-z <titlesize>] [-k <subtitle>] [-j <subtitlesize>] [-m <margin>] [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] [-x <photographer>] [-u <url>] [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] [-R <REPLICATE_ACCESSKEY>] <action> <input?> <output?>
 Flags, options and parameters:
     -h|--help        : [flag] show usage [default: off]
     -q|--quiet       : [flag] no output [default: off]
@@ -66,15 +59,19 @@ Flags, options and parameters:
     -u|--url <?>     : [option] photo URL override (empty: use URL from API)
     -P|--PIXABAY_ACCESSKEY <?>: [option] Pixabay access key
     -U|--UNSPLASH_ACCESSKEY <?>: [option] Unsplash access key
-    <action>         : [choice] action to perform  [options: unsplash,file,url,sizes,check,env,update]
+    -R|--REPLICATE_ACCESSKEY <?>: [option] Replicate API key
+    <action>         : [choice] action to perform  [options: unsplash,pixabay,text2image,file,url,sizes,check,env,update]
     <input>          : [parameter] URL or search term (optional)
     <output>         : [parameter] output file (optional)
                                   @github.com:pforret/splashmark.git                                             
 ### TIPS & EXAMPLES
 * use splashmark unsplash to download or search a Unsplash photo (requires free Unsplash API key)
   splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
-  splashmark unsplash rose rose.jpg
+  splashmark unsplash "rose" "rose.jpg"
   splashmark unsplash rose (will generate unsplash.rose.jpg)
+* use splashmark text2image to create an AI generated photo (requires Replicate API key)
+  splashmark text2image "picture of a red rose" rose.jpg
+  splashmark text2image "prompt"
 * use splashmark pixabay to download or search a Pixabay photo (requires free Pixabay API key)
   splashmark pixabay "https://pixabay.com/photos/rose-flower-love-romance-beautiful-729509/" rose.jpg
   splashmark pixabay rose rose.jpg
@@ -103,9 +100,9 @@ Flags, options and parameters:
 
 ```bash
 # On Linux
-sudo apt install exiftool imagemagick
+sudo apt install exiftool imagemagick jq
 # on MacOS
-brew install exiftool imagemagick
+brew install exiftool imagemagick jq
 ```
 2. via [basher](https://github.com/basherpm/basher)
 
@@ -120,14 +117,21 @@ sudo ln -s splashmark/splashmark /usr/bin/
 ```
 
         
-3. configure Unsplash API keys on [unsplash.com/oauth/applications](https://unsplash.com/oauth/applications)
+3. Get your API keys on
+* Unsplash: [unsplash.com/oauth/applications](https://unsplash.com/oauth/applications)
+* Pixabay: [pixabay.com/api/docs/](https://pixabay.com/api/docs/)
+* Replicate: [replicate.com/users/pforret/account](https://replicate.com/users/pforret/account)
 
 4. install API keys
 
 ```bash
-cp splashmark/.env.example splashmark/.env
 vi splashmark/.env
 # copy/paste `UNSPLASH_ACCESSKEY` value
+
+UNSPLASH_ACCESSKEY="(unsplash key)"
+PIXABAY_ACCESSKEY="(pixabay key)"
+REPLICATE_ACCESSKEY="(replicate key)"
+
 ```
 ## Example (verbose) output:
 
