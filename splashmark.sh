@@ -37,10 +37,10 @@ option|p|fonttype|font type family to use|FiraSansExtraCondensed-Bold.ttf
 option|r|fontcolor|font color to use|FFFFFF
 option|x|photographer|photographer name (empty: use name from API)|
 option|u|url|photo URL override (empty: use URL from API)|
-
 option|P|PIXABAY_ACCESSKEY|Pixabay access key|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
-choice|1|action|action to perform|unsplash,pixabay,file,url,sizes,check,env,update
+option|R|REPLICATE_ACCESSKEY|Replicate API key|
+choice|1|action|action to perform|unsplash,pixabay,text2image,file,url,sizes,check,env,update
 param|?|input|URL or search term
 param|?|output|output file
 " -v -e '^#' -e '^\s*$'
@@ -59,7 +59,7 @@ Script:main() {
 unsplash)
   #TIP: use «splashmark unsplash» to download or search a Unsplash photo (requires free Unsplash API key)
   #TIP:> splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
-  #TIP:> splashmark unsplash rose rose.jpg
+  #TIP:> splashmark unsplash "rose" "rose.jpg"
   #TIP:> splashmark unsplash rose   (will generate unsplash.rose.jpg)
   [[ -z "${UNSPLASH_ACCESSKEY:-}" ]] && IO:die "You need valid UNSPLASH_ACCESSKEY in .env - please copy this from https://unsplash.com/oauth/applications"
   image_source="unsplash"
@@ -88,6 +88,28 @@ unsplash)
     IO:print "$output"
   fi
   ;;
+
+text2image)
+  #TIP: use «splashmark text2image» to create an AI generated photo (requires Replicate API key)
+  #TIP:> splashmark text2image "picture of a red rose" rose.jpg
+  #TIP:> splashmark text2image "prompt"
+  [[ -z "${REPLICATE_ACCESSKEY:-}" ]] && IO:die "You need valid REPLICATE_ACCESSKEY in .env - please copy this from https://replicate.com/users/pforret/account"
+  image_source="replicate"
+  # shellcheck disable=SC2154
+  [[ -z "$input" ]] && IO:die "Need prompt to create an AI photo"
+  ### search for terms
+  local prompt_hash temp_image
+  prompt_hash=$(<<< "$input" Str:digest 12)
+  [[ -z "${output:-}" ]] && output="$image_source.$prompt_hash.jpg"
+  temp_image="$tmp_dir/$image_source.$prompt_hash.png"
+  IO:debug "Output file: [$output]"
+  image_file=$(ai:text2image "$input" "$temp_image")
+  if [[ -n "$image_file" ]]; then
+    Img:modify "$image_file" "$output"
+    IO:print "$output"
+  fi
+  ;;
+
 
 pixabay)
   #TIP: use «splashmark pixabay» to download or search a Pixabay photo (requires free Pixabay API key)
@@ -188,7 +210,7 @@ esac
 
 ### Unsplash API stuff
 
-unsplash:api() {
+function unsplash:api() {
   # $1 = relative API URL
   # $2 = jq query path
   Os:require jq
@@ -230,7 +252,7 @@ unsplash:api() {
     sed 's/,$//'
 }
 
-unsplash:metadata() {
+function unsplash:metadata() {
   # only get metadata if it was not yet specified as an option
   [[ -z "${photographer:-}" ]] && photographer=$(unsplash:api "/photos/$1" ".user.name")
   [[ -z "${url:-}" ]] && url="$(unsplash:api "/photos/$1" ".links.html")"
@@ -238,7 +260,7 @@ unsplash:metadata() {
   IO:debug "META: URL: $url"
 }
 
-unsplash:download() {
+function unsplash:download() {
   # $1 = photo_id
   # returns path of downloaded file
   photo_id=$(basename "/a/$1") # to avoid problems with image ID that start with '-'
@@ -283,7 +305,7 @@ unsplash:search() {
 
 ### Pixabay API stuff
 
-pixabay:api() {
+function pixabay:api() {
   # $1 = relative API URL
   # $2 = jq query path
   # https://pixabay.com/api/docs/
@@ -321,7 +343,7 @@ pixabay:api() {
     sed 's/,$//'
 }
 
-pixabay:metadata() {
+function pixabay:metadata() {
   # only get metadata if it was not yet specified as an option
   [[ -z "${photographer:-}" ]] && photographer=$(pixabay:api "?id=$photo_id&image_type=photo" ".hits[0].user")
   [[ -z "${url:-}" ]] && url="https://pixabay.com/photos/$photo_id/"
@@ -329,7 +351,7 @@ pixabay:metadata() {
   IO:debug "META: URL: $url"
 }
 
-pixabay:download() {
+function pixabay:download() {
   # $1 = photo_id
   # returns path of downloaded file
   # https://pixabay.com/api/?key=<key>&id=<id>+flowers&image_type=photo
@@ -347,7 +369,7 @@ pixabay:download() {
   echo "$cached_image"
 }
 
-pixabay:search() {
+function pixabay:search() {
   # $1 = keyword(s)
   # returns first result
   # https://pixabay.com/api/?key={ KEY }&q=yellow+flowers&image_type=photo
@@ -364,9 +386,77 @@ pixabay:search() {
   fi
 }
 
+### Replicate AI stuff
+function ai:text2image(){
+  # shellcheck disable=SC2154
+  local status_file job_id ready url_download waits
+  local ai_file="$2"
+  [[ -f "$2" ]] && echo "$2" && return 0
+  status_file="$2.json"
+  IO:debug "Job JSON  = $status_file"
+  if [[ ! -f $status_file ]] ; then
+    IO:debug "Use prompt= $1"
+    replicate:create "$1" > "$status_file"
+  else
+    IO:debug "Job was already started"
+  fi
+  job_id=$(< "$status_file" jq -r .id)
+  ready=0
+  waits=0
+  while [[ "$ready" -eq 0 ]]; do
+    status=$(replicate:status "$job_id" force | jq -r ".status")
+    if [[ "$status" == "succeeded" ]] ; then
+      ready=1
+    else
+      waits=$((waits + 1))
+      [[ "$waits" -gt 100 ]] && return 1
+      printf "."
+      IO:debug "waiting 10 seconds ..."
+      sleep 10
+    fi
+  done
+  printf "\r"
+  url_download=$(replicate:status "$job_id" | jq -r ".output[0]")
+  IO:debug "Download: $url_download"
+  IO:debug "AI Image: $ai_file"
+  curl -s -o "$ai_file" "$url_download"
+  echo "$ai_file"
+}
+
+function replicate:create() {
+  # cf: https://replicate.com/stability-ai/stable-diffusion/api
+  local endpoint="https://api.replicate.com/v1/predictions"
+  local prompt="$1"
+
+  curl -s \
+    -H "Authorization: Token $REPLICATE_ACCESSKEY" \
+    -H 'Content-Type: application/json' \
+    -X POST \
+    -d "{ \"version\": \"db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf\", \"input\": { \"prompt\": \"$prompt\" } } " \
+    "$endpoint" | jq
+}
+
+function replicate:status(){
+  local job_id="$1"
+  local status_file="$tmp_dir/$1.json"
+
+  if [[ -f "$status_file" ]] ; then
+    if [[ ! "${2:-}" == "force" ]] ; then
+      cat "$status_file"
+      return 0
+    fi
+  fi
+  IO:debug "Update job status in $status_file"
+  curl -s \
+    -H "Authorization: Token $REPLICATE_ACCESSKEY" \
+    -H 'Content-Type: application/json' \
+    "https://api.replicate.com/v1/predictions/$job_id" \
+    | tee "$status_file"
+}
+
 ### Image URL stuff
 
-Img:download() {
+function Img:download() {
   # $1 = url
   local uniq
   local extension="jpg"
