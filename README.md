@@ -8,7 +8,7 @@
 
 # splashmark
 
-![splashmark logo](assets/splash.jpg)
+![splashmark logo](assets/genai.jpg)
 
 Remix images by
 * resize/crop
@@ -21,6 +21,7 @@ Works with
 * image URL
 * [Unsplash](https://unsplash.com/) images
 * [Pixabay](https://pixabay.com/) images
+* [Replicate](https://replicate.com/) StableDiffusion images
 
 ## Usage
 
