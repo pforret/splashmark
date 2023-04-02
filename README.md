@@ -120,7 +120,7 @@ sudo ln -s splashmark/splashmark /usr/bin/
 3. Get your API keys on
 * Unsplash: [unsplash.com/oauth/applications](https://unsplash.com/oauth/applications)
 * Pixabay: [pixabay.com/api/docs/](https://pixabay.com/api/docs/)
-* Replicate: [replicate.com/users/pforret/account](https://replicate.com/users/pforret/account)
+* Replicate: [replicate.com/users/(user)/account](https://replicate.com/)
 
 4. install API keys
 

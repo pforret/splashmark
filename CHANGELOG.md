@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 - work on new features
 
+## [3.4.0] - 2023-04-02
+- support for AI image generation via https://replicate.com/stability-ai/stable-diffusion
+
 ## [0.0.1] - 2020-09-28
 ### Added
 - create unsplashdl with [pforret/bashew](https://github.com/pforret/bashew)
