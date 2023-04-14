@@ -64,3 +64,7 @@ Put the `watermark.sh` script in the folder of your exported, but not yet waterm
 Double-click the `watermark.sh` icon. A Terminal window will pop up and start executing the script.
 
 ![](assets/script_output.png)
+
+Watermarks will be added like this 
+
+![](assets/watermarked.png)
