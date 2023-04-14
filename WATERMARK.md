@@ -16,7 +16,7 @@ Now you need to type the following lines (only the ones that don't start with #)
 # procedure explained on https://www.basher.it/ or https://github.com/basherpm/basher/blob/master/README.md
 curl -s https://raw.githubusercontent.com/basherpm/basher/master/install.sh | bash
 
-# now open a new bash session, where the basher scripts cabn be easily found
+# now open a new bash session, so that the basher scripts can be easily found
 bash
 
 # let's test if basher was properly installed
@@ -41,11 +41,11 @@ splashmark
 # (...)
 ```
 Put the `watermark.sh` script in the folder of your exported, but not yet watermarked photos.
-Make sure that when you doubleclick the .sh script, it will open with the `terminal` program
+Make sure that when you double-click the .sh script, it will open with the `terminal` program
 
 ![](assets/openwith.png)
 
-If you computer opens .sh files with a text editor (as is the default), then choose `Terminal` via the 'Other...' popup. `Terminal` is located in the 'Utilities' subfolder of Applications.
+If your computer opens .sh files with a text editor (as is the default), then choose `Terminal` via the 'Other...' popup. `Terminal` is located in the 'Utilities' subfolder of Applications.
 
 ![](assets/openwith2.png)
 

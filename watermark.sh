@@ -2,7 +2,12 @@
 
 folder=$(dirname "$0")
 cd "$folder" || exit
-[[ ! $(command -v splashmark) ]] && echo "Requires pforret/splashmark" && exit 1
+if [[ ! $(command -v splashmark) ]] ; then
+  echo "### WARNING"
+  echo "Requires pforret/splashmark"
+  echo "Follow instructions on https://github.com/pforret/splashmark/blob/master/WATERMARK.md"
+  exit 1
+fi
 year=$(date +%Y)
 name="Peter Forret"
 
