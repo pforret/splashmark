@@ -40,7 +40,9 @@ option|u|url|photo URL override (empty: use URL from API)|
 option|P|PIXABAY_ACCESSKEY|Pixabay access key|
 option|U|UNSPLASH_ACCESSKEY|Unsplash access key|
 option|R|REPLICATE_ACCESSKEY|Replicate API key|
-choice|1|action|action to perform|unsplash,pixabay,text2image,file,url,sizes,check,env,update
+option|X|EXPORT|export to subfolder|export
+option|E|EXTENSION|image extension to use|jpg
+choice|1|action|action to perform|unsplash,pixabay,text2image,file,folder,url,sizes,check,env,update
 param|?|input|URL or search term
 param|?|output|output file
 " -v -e '^#' -e '^\s*$'
@@ -70,13 +72,13 @@ unsplash)
     ### Unsplash URL: download one photo
     photo_id=$(basename "$input")
     # shellcheck disable=SC2154
-    [[ -z "${output:-}" ]] && output="unsplash.$photo_id.jpg"
+    [[ -z "${output:-}" ]] && output="unsplash.$photo_id.$EXTENSION"
   else
     ### search for terms
     photo_id=$(unsplash:search "$input")
     local photo_slug
     photo_slug=$(Str:slugify "$input")
-    [[ -z "${output:-}" ]] && output="unsplash.$photo_slug.jpg"
+    [[ -z "${output:-}" ]] && output="unsplash.$photo_slug.$EXTENSION"
   fi
   IO:debug "Output file: [$output]"
   if [[ -n "$photo_id" ]]; then
@@ -100,7 +102,7 @@ text2image)
   ### search for terms
   local prompt_hash temp_image
   prompt_hash=$(<<< "$input" Str:digest 12)
-  [[ -z "${output:-}" ]] && output="$image_source.$prompt_hash.jpg"
+  [[ -z "${output:-}" ]] && output="$image_source.$prompt_hash.$EXTENSION"
   temp_image="$tmp_dir/$image_source.$prompt_hash.png"
   IO:debug "Output file: [$output]"
   image_file=$(ai:text2image "$input" "$temp_image")
@@ -125,12 +127,12 @@ pixabay)
     ### Unsplash URL: download one photo
     photo_id=$(basename "${input//-//}")
     # shellcheck disable=SC2154
-    [[ -z "${output:-}" ]] && output="pixabay.$photo_id.jpg"
+    [[ -z "${output:-}" ]] && output="pixabay.$photo_id.$EXTENSION"
   else
     ### search for terms
     photo_id=$(pixabay:search "$input")
     photo_slug=$(Str:slugify "$input")
-    [[ -z "${output:-}" ]] && output="pixabay.$photo_slug.jpg"
+    [[ -z "${output:-}" ]] && output="pixabay.$photo_slug.$EXTENSION"
   fi
   IO:debug "Output file: [$output]"
   if [[ -n "$photo_id" ]]; then
@@ -142,7 +144,7 @@ pixabay)
   fi
   ;;
 
-file | f)
+file)
   #TIP: use «splashmark file» to add texts and effects to a existing image
   #TIP:> splashmark file waterfall.jpg sources/original.jpg
   #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
@@ -153,10 +155,38 @@ file | f)
   local hash
   name=$(basename "$input" .jpg | cut -c1-8)
   hash=$(<<< "$input" Str:digest 6)
-  [[ -z "${output:-}" ]] && output="file.$name.$hash.jpg"
+  [[ -z "${output:-}" ]] && output="file.$name.$hash.$EXTENSION"
   IO:debug "Output file: [$output]"
   Img:modify "$input" "$output"
   IO:print "$output"
+  ;;
+
+folder)
+  #TIP: use «splashmark folder» to add texts and effects to a existing image
+  #TIP:> splashmark folder /home/folder
+  #TIP:> splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
+  image_source="file"
+  [[ ! -d "$input" ]] && IO:die "Cannot find input folder [$input]"
+  IO:debug "Input folder  : [$input]"
+  local output_folder
+  output_folder="$(realpath "$input")/$EXPORT"
+  [[ ! -d "$output_folder" ]] && mkdir -p "$output_folder"
+  IO:debug "Output folder : [$output_folder]"
+  local file base export_file
+  find "$input" -maxdepth 1 -type f -name "*.jpg" \
+  | while read -r file ; do
+      base=$(basename "$file" .jpg)
+      export_file="$output_folder/$base.$EXTENSION"
+      Img:modify "$file" "$export_file"
+      IO:print "$export_file"
+    done
+  find "$input" -maxdepth 1 -type f -name "*.png" \
+  | while read -r file ; do
+      base=$(basename "$file" .png)
+      export_file="$output_folder/$base.$EXTENSION"
+      Img:modify "$file" "$export_file"
+      IO:print "$export_file"
+    done
   ;;
 
 url | u)
@@ -169,7 +199,7 @@ url | u)
   [[ ! -f "$image_file" ]] && IO:die "Cannot download input image [$input]"
   name=$(basename "$image_file" .jpg | cut -c1-8)
   hash=$(<<< "$input" Str:digest 6)
-  [[ -z "${output:-}" ]] && output="url.$name.$hash.jpg"
+  [[ -z "${output:-}" ]] && output="url.$name.$hash.$EXTENSION"
   IO:debug "Process cached image [$image_file] -> [$output]"
   Img:modify "$image_file" "$output"
   IO:print "$output"
