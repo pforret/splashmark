@@ -39,7 +39,16 @@ splashmark
 # Version : v3.5.0 (Apr 14 21:33:20 2023)
 # Purpose : Mark up images (unspash/pixabay/URL) with titles, effects and resize
 # (...)
+
+# install the requirements
+# On Linux (Ubuntu)
+sudo apt install exiftool imagemagick jq
+# on MacOs
+brew install exiftool imagemagick jq
 ```
+
+## Configure your watermark
+
 Put the `watermark.sh` script in the folder of your exported, but not yet watermarked photos.
 Make sure that when you double-click the .sh script, it will open with the `terminal` program
 
@@ -49,7 +58,6 @@ If your computer opens .sh files with a text editor (as is the default), then ch
 
 ![](assets/openwith2.png)
 
-## Configure your watermark
 Open watermark.sh with a text editor.
 
 ![](assets/texteditor.png)
