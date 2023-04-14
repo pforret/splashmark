@@ -14,7 +14,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Check for basic execution
-      run: ls ./*.sh | xargs bash
+      run: bash splashmark.sh
 
     - name: Unit testing with bash_unit
       run: tests/bash_unit tests/test_*
