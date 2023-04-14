@@ -71,7 +71,7 @@ unsplash)
     [[ ! "$input" == *"://unsplash.com"* ]] && IO:die "[$input] is not a unsplash.com URL"
     ### Unsplash URL: download one photo
     photo_id=$(basename "$input")
-    # shellcheck disable=SC2154
+    # shellcheck disable=SC2154 disable=SC2153
     [[ -z "${output:-}" ]] && output="unsplash.$photo_id.$EXTENSION"
   else
     ### search for terms
