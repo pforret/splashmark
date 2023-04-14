@@ -27,9 +27,9 @@ Works with
 
 ```bash
 Program : splashmark  by peter@forret.com
-Version : v3.4.0 (Apr  2 22:21:00 2023)
+Version : v3.5.3 (Apr 14 21:33:20 2023)
 Purpose : Mark up images (unspash/pixabay/URL) with titles, effects and resize
-Usage   : splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <crop>] [-s <preset>] [-S <resize>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] [-d <randomize>] [-D <number>] [-e <effect>] [-g <gravity>] [-i <title>] [-z <titlesize>] [-k <subtitle>] [-j <subtitlesize>] [-m <margin>] [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] [-x <photographer>] [-u <url>] [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] [-R <REPLICATE_ACCESSKEY>] <action> <input?> <output?>
+Usage   : splashmark [-h] [-q] [-v] [-l <log_dir>] [-t <tmp_dir>] [-w <width>] [-c <crop>] [-s <preset>] [-S <resize>] [-1 <northwest>] [-2 <northeast>] [-3 <southwest>] [-4 <southeast>] [-d <randomize>] [-D <number>] [-e <effect>] [-g <gravity>] [-i <title>] [-z <titlesize>] [-k <subtitle>] [-j <subtitlesize>] [-m <margin>] [-o <fontsize>] [-p <fonttype>] [-r <fontcolor>] [-x <photographer>] [-u <url>] [-P <PIXABAY_ACCESSKEY>] [-U <UNSPLASH_ACCESSKEY>] [-R <REPLICATE_ACCESSKEY>] [-X <EXPORT>] [-E <EXTENSION>] <action> <input?> <output?>
 Flags, options and parameters:
     -h|--help        : [flag] show usage [default: off]
     -q|--quiet       : [flag] no output [default: off]
@@ -61,10 +61,12 @@ Flags, options and parameters:
     -P|--PIXABAY_ACCESSKEY <?>: [option] Pixabay access key
     -U|--UNSPLASH_ACCESSKEY <?>: [option] Unsplash access key
     -R|--REPLICATE_ACCESSKEY <?>: [option] Replicate API key
-    <action>         : [choice] action to perform  [options: unsplash,pixabay,text2image,file,url,sizes,check,env,update]
+    -X|--EXPORT <?>  : [option] export to subfolder  [default: export]
+    -E|--EXTENSION <?>: [option] image extension to use  [default: jpg]
+    <action>         : [choice] action to perform  [options: unsplash,pixabay,text2image,file,folder,url,sizes,check,env,update]
     <input>          : [parameter] URL or search term (optional)
     <output>         : [parameter] output file (optional)
-                                  @github.com:pforret/splashmark.git                                             
+     
 ### TIPS & EXAMPLES
 * use splashmark unsplash to download or search a Unsplash photo (requires free Unsplash API key)
   splashmark unsplash "https://unsplash.com/photos/lGo_E2XonWY" rose.jpg
@@ -79,6 +81,9 @@ Flags, options and parameters:
   splashmark pixabay rose (will generate pixabay.rose.jpg)
 * use splashmark file to add texts and effects to a existing image
   splashmark file waterfall.jpg sources/original.jpg
+  splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
+* use splashmark folder to add texts and effects to a existing image
+  splashmark folder /home/folder
   splashmark --title "Strawberry" -w 1280 -c 640 -e dark,median,grain file sources/original.jpg waterfall.jpg
 * use splashmark url to add texts and effects to a image that will be downloaded from a URL
   splashmark file waterfall.jpg "https://i.imgur.com/rbXZcVH.jpg"
