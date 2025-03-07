@@ -15,6 +15,11 @@ root_folder=$(cd .. && pwd) # tests/.. is root folder
 # shellcheck disable=SC2035
 root_script=$(find "$root_folder" -maxdepth 1 -name "*.sh" | head -1) # normally there should be only 1
 
+test_identyify(){
+   which identify
+   identify -version
+}
+
 test_set_width_crop() {
   local random_width=$((100 + RANDOM % 400))
   local random_height=$((100 + RANDOM % 400))
