@@ -18,5 +18,15 @@ jobs:
     - name: Check for basic execution
       run: bash splashmark.sh
 
-    - name: Unit testing with bash_unit
-      run: tests/bash_unit tests/test_*
+    - name: Test basic functioning
+      run: tests/bash_unit tests/test_basic.sh
+
+    - name: Test Image Effects
+      run: tests/bash_unit tests/test_effects.sh
+
+    - name: Test Providers (Unsplash/Pixabay/Replicate)
+      run: tests/bash_unit tests/test_modes.sh
+
+    - name: Test Preset Sizes
+      run: tests/bash_unit tests/test_sizes.sh
+
