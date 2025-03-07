@@ -248,6 +248,7 @@ function unsplash:api() {
   local api_endpoint="https://api.unsplash.com"
   local full_url="$api_endpoint$1"
   local show_url="$api_endpoint$1"
+  [[ -z "$UNSPLASH_ACCESSKEY" ]] && "Need Unsplash API key UNSPLASH_ACCESSKEY= in .env"
   if [[ $full_url =~ "?" ]]; then
     # already has querystring
     full_url="$full_url&client_id=$UNSPLASH_ACCESSKEY"
@@ -571,13 +572,13 @@ function Img:modify() {
   # $1 = input file
   # $2 = output file
 
-  Os:require convert imagemagick
+  Os:require magick imagemagick
   local font_list
 
   # shellcheck disable=SC2154
   font_list="$tmp_dir/magick.fonts.txt"
   if [[ ! -f "$font_list" ]]; then
-    convert -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' >"$font_list"
+    magick -list font | awk -F: '/Font/ {gsub(" ","",$2); print $2 }' >"$font_list"
   fi
   if [[ -f "$fonttype" ]]; then
     IO:debug "FONT [$fonttype] exists as a font file"
@@ -609,10 +610,10 @@ function Img:modify() {
   # shellcheck disable=SC2154
   if [[ "$crop" -gt 0 ]]; then
     IO:debug "CROP: image to $width x $crop --> $2"
-    convert "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
+    magick "$1" -gravity Center -resize "${width}x${crop}^" -crop "${width}x${crop}+0+0" +repage -quality 95% "$2"
   else
     IO:debug "SIZE: to $width wide --> $2"
-    convert "$1" -gravity Center -resize "${width}"x -quality 95% "$2"
+    magick "$1" -gravity Center -resize "${width}"x -quality 95% "$2"
   fi
   ## set EXIF/IPTC tags
   IO:debug "Img:metadata"
