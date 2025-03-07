@@ -13,6 +13,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - uses: mfinelli/setup-imagemagick@v6
+
     - name: Check for basic execution
       run: bash splashmark.sh
 
