@@ -15,6 +15,9 @@ jobs:
 
     - uses: mfinelli/setup-imagemagick@v6
 
+    - name: check for imagemagick binaries
+      run: which magick && which identify
+
     - name: Check for basic execution
       run: bash splashmark.sh
 

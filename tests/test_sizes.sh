@@ -15,7 +15,7 @@ root_folder=$(cd .. && pwd) # tests/.. is root folder
 # shellcheck disable=SC2035
 root_script=$(find "$root_folder" -maxdepth 1 -name "*.sh" | head -1) # normally there should be only 1
 
-test_identyify(){
+test_identify(){
    which identify
    identify -version
 }
